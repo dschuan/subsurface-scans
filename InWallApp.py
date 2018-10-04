@@ -106,7 +106,7 @@ def InWallApp():
 
 		ax = fig.add_subplot(111, projection='3d')
 
-		ax.scatter(xArray,yArray,zArray)
+		ax.scatter(xArray,zArray,yArray)
 
 		# PrintSensorTargets(targets)
 		#PrintSensorTargets(targets)
@@ -114,8 +114,8 @@ def InWallApp():
 
 
 		ax.set_xlim(0, 67)
-		ax.set_ylim(0, 37)
-		ax.set_zlim(0, 17)
+		ax.set_ylim(0, 17)
+		ax.set_zlim(0, 37)
 		#plt.imshow(rasterImage)
 		plt.show(block = False)
 		#print(rasterImage.shape)
