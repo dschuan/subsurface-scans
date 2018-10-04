@@ -12,6 +12,8 @@ from scipy import ndimage as ndi
 from skimage import feature
 from skimage.filters import roberts, sobel, scharr, prewitt
 
+from mpl_toolkits.mplot3d import Axes3D
+
 
 APP_STATUS = ['STATUS_CLEAN',
 'STATUS_INITIALIZED',
@@ -76,40 +78,49 @@ def InWallApp():
 
 	while wlbt.GetStatus()[0] == wlbt.STATUS_CALIBRATING:
 		wlbt.Trigger()
-	while True:
-		wlbt.SetThreshold(80)
 
-		appStatus, calibrationProcess = wlbt.GetStatus()
+	fig = plt.figure()
+	while True:
+
+		#appStatus, calibrationProcess = wlbt.GetStatus()
 		# 5) Trigger: Scan (sense) according to profile and record signals
 		# to be available for processing and retrieval.
 		wlbt.Trigger()
 		# 6) Get action: retrieve the last completed triggered recording
-		targets = wlbt.GetImagingTargets()
-		_, _, _, sliceDepth, power = wlbt.GetRawImageSlice()
-		rasterImage, _, _, _, _ = wlbt.GetRawImage()
+		#targets = wlbt.GetImagingTargets()
+		#_, _, _, sliceDepth, power = wlbt.GetRawImageSlice()
+		rasterImage, _, _, _, power = wlbt.GetRawImage()
 		rasterImage = np.array(rasterImage)
-		# PrintSensorTargets(targets)
-		PrintSensorTargets(targets)
-		print(rasterImage.shape)
-		element = int((sliceDepth - zArenaMin) / zArenaRes)
 
-		if element >= 16:
-			element = 15
-		print(element)
-		print ("Length:", len(rasterImage), "\n SliceDepth: ", sliceDepth, "\n power: ", power)
-		slice = rasterImage[:, :, element]
-		slice1 = rasterImage[:, :, element + 2]
-		slice2 = rasterImage[:, :, element + 1]
-		plt.plot(slice1[0], slice1[1], 0)
-		plt.show()
-		stop = input("stop")
-		#plt.xlim(-10, 34)
-		#plt.ylim(-10, 44)
+		xArray = [0]
+		yArray = [0]
+		zArray = [0]
+
+		print(rasterImage)
+		print(power)
+		for (x,y,z), value in np.ndenumerate(rasterImage):
+			if value > 100 and power > 5:
+				xArray.append(x)
+				yArray.append(y)
+				zArray.append(z)
+
+		ax = fig.add_subplot(111, projection='3d')
+
+		ax.scatter(xArray,yArray,zArray)
+
+		# PrintSensorTargets(targets)
+		#PrintSensorTargets(targets)
+
+
+
+		ax.set_xlim(0, 67)
+		ax.set_ylim(0, 37)
+		ax.set_zlim(0, 17)
 		#plt.imshow(rasterImage)
-		#plt.show(block = False)
+		plt.show(block = False)
 		#print(rasterImage.shape)
-		#plt.pause(0.001)
-		#plt.gcf().clear()
+		plt.pause(0.2)
+		plt.gcf().clear()
 
 
 
