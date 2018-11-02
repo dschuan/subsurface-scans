@@ -99,7 +99,7 @@ def InWallApp():
 		print(rasterImage)
 		print(power)
 		for (x,y,z), value in np.ndenumerate(rasterImage):
-			if value > 100 and power > 5:
+			if value > 100 and power > 1:
 				xArray.append(x)
 				yArray.append(y)
 				zArray.append(z)
