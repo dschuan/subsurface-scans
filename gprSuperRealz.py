@@ -19,8 +19,12 @@ WalabotAPI = load_source('WalabotAPI',
     'C:/Program Files/Walabot/WalabotSDK/python/WalabotAPI.py')
 WalabotAPI.Init("C:/Program Files/Walabot/WalabotSDK/bin/WalabotAPI.dll")
 
-def GetSignal(targets, counter, filename):
+TX_ANTENNA_NUM = 14
+RX_ANTENNA_NUM = 15
+
+def GetSignal(targets, counter, filename, x_pos, y_pos):
     jsonRes = {}
+    jsonRes['coord'] = [x_pos, y_pos]
     jsonRes['time'] = targets[0]
     jsonRes['amplitude'] = targets[1]
 
@@ -32,7 +36,7 @@ def GetSignal(targets, counter, filename):
     with open(filename, 'w') as f:
         json.dump(data, f)
 
-def PrintSensorTargets(targets, counter, filename, rasterImage, power):
+def PrintSensorTargets(targets, counter, filename, rasterImage, power, x_pos, y_pos):
     system('cls' if platform == 'win32' else 'clear')
     jsonRes = {}
     jsonRes['rasterImage'] = rasterImage
@@ -40,6 +44,7 @@ def PrintSensorTargets(targets, counter, filename, rasterImage, power):
     if targets:
         for i,target in enumerate(targets):
             res = ('Target #{}:\ntype: {}\nangleDeg: {}\nx: {}\ny: {}\nz: {}' + '\nwidth: {}\namplitude: {}\n').format(i + 1, target.type, target.angleDeg, target.xPosCm, target.yPosCm, target.zPosCm, target.widthCm, target.amplitude)
+            jsonRes['Coordinates'] = [x_pos, y_pos]
 
             jsonRes['targetNum'] = i + 1
             jsonRes['type'] = target.type
@@ -101,23 +106,34 @@ def InWallApp(filename):
     pairs = WalabotAPI.GetAntennaPairs();
     counter = 1
     stopper = input("Begin")
+    freq = 250
+
+    x_pos = 10
+    increment = 2
+    y_pos = 0
     while True:
+        if x_pos > 30:
+            y_pos += increment
+            x_pos = 10
         # 5) Trigger: Scan (sense) according to profile and record signals
         # to be available for processing and retrieval.
+        x_pos = int(input("Key in X"))
+        y_pos = int(input("Key in Y"))
         WalabotAPI.Trigger()
         # 6) Get action: retrieve the last completed triggered recording
-        print("Scanning ",counter)
+        print("Scanning ",counter, " using ", TX_ANTENNA_NUM, " transmitter and ", RX_ANTENNA_NUM, " receiver")
         pairs = WalabotAPI.GetAntennaPairs();
+
         for pair in pairs:
-            if pair.txAntenna == 10 and pair.rxAntenna == 11:
+            if pair.txAntenna == TX_ANTENNA_NUM and pair.rxAntenna == RX_ANTENNA_NUM:
                 chosenPair = pair
-
         targets = [];
-        print(chosenPair)
-        targets= WalabotAPI.GetSignal(chosenPair);
-        GetSignal(targets, counter, rawSignalFile)
-        print("Obtained ", counter, "raw signal")
+        print("Coordinates: ", x_pos, " ,", y_pos)
 
+
+        targets= WalabotAPI.GetSignal(chosenPair);
+        GetSignal(targets, counter, rawSignalFile, x_pos, y_pos)
+        print("Obtained ", counter, "raw signal")
 
 
 
@@ -131,18 +147,18 @@ def InWallApp(filename):
         targets = WalabotAPI.GetImagingTargets()
         rasterImage, _, _, _, power = WalabotAPI.GetRawImage()
 
-        PrintSensorTargets(targets,counter,imageFile,rasterImage,power)
+        PrintSensorTargets(targets,counter,imageFile,rasterImage,power, x_pos, y_pos)
         print("Obtained ", counter, "target image")
 
         #alarm when done
         duration = 500
-        freq = 440
         winsound.Beep(freq, duration)
+        stop = input("Press enter to continue")
 
-        stop = input("Press key to scan")
-
+        freq += 1;
 
         counter += 1
+        x_pos += 2
 
 
     #rasterImage, _, _, sliceDepth, power = WalabotAPI.GetRawImageSlice()
