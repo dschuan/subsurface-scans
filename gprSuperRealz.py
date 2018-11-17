@@ -25,8 +25,8 @@ RX_ANTENNA_NUM = 15
 def GetSignal(targets, counter, filename, x_pos, y_pos):
     jsonRes = {}
     jsonRes['coord'] = [x_pos, y_pos]
-    jsonRes['time'] = targets[0]
-    jsonRes['amplitude'] = targets[1]
+    jsonRes['time'] = targets[1]
+    jsonRes['amplitude'] = targets[0]
 
     with open(filename) as f:
         data = json.load(f)

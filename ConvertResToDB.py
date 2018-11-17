@@ -5,7 +5,7 @@ import json
 from matplotlib import pyplot as plt
 import numpy as np
 
-db = lambda x: -10 * np.log10(x)
+db = lambda x: -10 * np.log10(abs(x))
 convertDb = np.vectorize(db)
 print('hi')
 filepaths = [file for file in glob.glob('./results/*.json') if 'simple' not in file]
