@@ -12,8 +12,9 @@ with open('./results/cover_box_line_reflector_db.json') as f:
 	oldcoord = [0,0]
 	for item in data.keys():
 		coord = data[str(item)]["coord"]
-		if coord[1] == oldcoord[1]:
+		if not coord[0] == 16:
 			continue
+
 		oldcoord = coord
 		time = data[str(item)]["time"]
 		amplitude = data[str(item)]["amplitude"]
@@ -26,4 +27,5 @@ with open('./results/cover_box_line_reflector_db.json') as f:
 		plt.show(block = False)
 		#print(rasterImage.shape)
 		plt.pause(0.5)
+		plt.savefig(str(coord) +'.png')
 		plt.gcf().clear()
