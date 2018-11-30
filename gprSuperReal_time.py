@@ -1,6 +1,6 @@
 from __future__ import print_function # WalabotAPI works on both Python 2 and 3.
 from sys import platform
-import time
+import time as tm
 from os import system, path
 import json
 from imp import load_source
@@ -29,23 +29,28 @@ def plotDB(time, amplitude):
     time_arr = np.asarray(time)
     amp_arr = np.asarray(amplitude)
     amp_arr = convertDb(amp_arr)
+    plt.ylim(None, 30)
+    print("Min amplitude value ", np.min(amp_arr))
     plt.plot(time_arr.tolist(), amp_arr.tolist())
-    plt.show()
+
+    plt.show(block = False)
+    plt.pause(0.2)
+    plt.gcf().clear()
 
 def GetSignal(targets, counter, filename, x_pos, y_pos):
-    jsonRes = {}
-    print("target length", len(targets))
-    jsonRes['coord'] = [x_pos, y_pos]
-    jsonRes['time'] = targets[1]
-    jsonRes['amplitude'] = targets[0]
-    with open(filename) as f:
-        data = json.load(f)
-
-    data.update({counter: jsonRes})
-
-    with open(filename, 'w') as f:
-        json.dump(data, f)
-    # plotDB(targets[1], targets[0])
+    # jsonRes = {}
+    # print("target length", len(targets))
+    # jsonRes['coord'] = [x_pos, y_pos]
+    # jsonRes['time'] = targets[1]
+    # jsonRes['amplitude'] = targets[0]
+    # with open(filename) as f:
+    #     data = json.load(f)
+    #
+    # data.update({counter: jsonRes})
+    #
+    # with open(filename, 'w') as f:
+    #     json.dump(data, f)
+    plotDB(targets[1], targets[0])
 
 def PrintSensorTargets(targets, counter, filename, rasterImage, power, x_pos, y_pos):
     system('cls' if platform == 'win32' else 'clear')
@@ -117,11 +122,11 @@ def InWallApp(filename):
     pairs = WalabotAPI.GetAntennaPairs();
     counter = 1
     stopper = input("Begin")
-    freq = 450
-    #original x_pos = 10, y_pos = 0
+    freq = 250
+
     x_pos = 10
-    increment = 1
-    y_pos = 10
+    increment = 2
+    y_pos = 0
     while True:
         if x_pos > 30:
             y_pos += increment
@@ -153,11 +158,8 @@ def InWallApp(filename):
         #print("Obtained ", counter, "target image")
 
         #alarm when done
-        duration = 500
-        winsound.Beep(freq, duration)
-        stop = input("Press enter to continue")
 
-        freq += 5;
+        freq += 1;
 
         counter += 1
         x_pos += increment

@@ -3,29 +3,25 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 
+def findMin(amplitude):
+	db = lambda x: -10 * np.log10(abs(x))
+	convertDb = np.vectorize(db)
+	amp_arr = np.asarray(amplitude)
+	amp_arr = convertDb(amp_arr)
+	return np.amin(amp_arr)
 
-with open('./results/cover_box_line_reflector_db.json') as f:
+with open('./results/one_line_read_openbox.json') as f:
 	data = json.load(f)
 
-	plt.figure()
-
-	oldcoord = [0,0]
-	for item in data.keys():
-		coord = data[str(item)]["coord"]
-		if not coord[0] == 16:
-			continue
-
-		oldcoord = coord
-		time = data[str(item)]["time"]
-		amplitude = data[str(item)]["amplitude"]
-
-		plt.plot(amplitude,time)
-		plt.xlabel('time')
-		plt.ylabel('amplitude')
-		plt.ylim((0, 40))
-		plt.title('dB at' + str(coord))
-		plt.show(block = False)
-		#print(rasterImage.shape)
-		plt.pause(0.5)
-		plt.savefig(str(coord) +'.png')
-		plt.gcf().clear()
+keys = data.values()
+y_val = []
+x_val = []
+for key in keys:
+	amp = key['amplitude']
+	y_val.append(findMin(amp))
+	coord = key['coord']
+	x_val.append(coord[0])
+plt.xticks(x_val)
+plt.plot(x_val, y_val)
+plt.show()
+print(x_val)
