@@ -6,6 +6,8 @@ import json
 from imp import load_source
 import winsound
 import matplotlib.pyplot as plt
+import numpy as np
+
 
 APP_STATUS = ['STATUS_CLEAN',
 'STATUS_INITIALIZED',
@@ -21,13 +23,21 @@ WalabotAPI.Init("C:/Program Files/Walabot/WalabotSDK/bin/WalabotAPI.dll")
 
 TX_ANTENNA_NUM = 14
 RX_ANTENNA_NUM = 15
+def plotDB(time, amplitude):
+    db = lambda x: -10 * np.log10(abs(x))
+    convertDb = np.vectorize(db)
+    time_arr = np.asarray(time)
+    amp_arr = np.asarray(amplitude)
+    amp_arr = convertDb(amp_arr)
+    plt.plot(time_arr.tolist(), amp_arr.tolist())
+    plt.show()
 
 def GetSignal(targets, counter, filename, x_pos, y_pos):
     jsonRes = {}
+    print("target length", len(targets))
     jsonRes['coord'] = [x_pos, y_pos]
-    jsonRes['time'] = targets[0]
-    jsonRes['amplitude'] = targets[1]
-
+    jsonRes['time'] = targets[1]
+    jsonRes['amplitude'] = targets[0]
     with open(filename) as f:
         data = json.load(f)
 
@@ -35,6 +45,7 @@ def GetSignal(targets, counter, filename, x_pos, y_pos):
 
     with open(filename, 'w') as f:
         json.dump(data, f)
+    # plotDB(targets[1], targets[0])
 
 def PrintSensorTargets(targets, counter, filename, rasterImage, power, x_pos, y_pos):
     system('cls' if platform == 'win32' else 'clear')
@@ -106,19 +117,18 @@ def InWallApp(filename):
     pairs = WalabotAPI.GetAntennaPairs();
     counter = 1
     stopper = input("Begin")
-    freq = 250
-
+    freq = 450
+    #original x_pos = 10, y_pos = 0
     x_pos = 10
-    increment = 2
-    y_pos = 0
+    increment = 1
+    y_pos = 10
     while True:
         if x_pos > 30:
             y_pos += increment
             x_pos = 10
         # 5) Trigger: Scan (sense) according to profile and record signals
         # to be available for processing and retrieval.
-        x_pos = int(input("Key in X"))
-        y_pos = int(input("Key in Y"))
+
         WalabotAPI.Trigger()
         # 6) Get action: retrieve the last completed triggered recording
         print("Scanning ",counter, " using ", TX_ANTENNA_NUM, " transmitter and ", RX_ANTENNA_NUM, " receiver")
@@ -136,29 +146,21 @@ def InWallApp(filename):
         print("Obtained ", counter, "raw signal")
 
 
+        #targets = WalabotAPI.GetImagingTargets()
+        #rasterImage, _, _, _, power = WalabotAPI.GetRawImage()
 
-        #plt.xlim(0, 1e-8)
-        #plt.ylim(-0.5, 0.5)
-        # plt.plot(targets[1], targets[0])
-        # plt.show(block = False)
-        # plt.pause(0.5)
-        # plt.gcf().clear()
-
-        targets = WalabotAPI.GetImagingTargets()
-        rasterImage, _, _, _, power = WalabotAPI.GetRawImage()
-
-        PrintSensorTargets(targets,counter,imageFile,rasterImage,power, x_pos, y_pos)
-        print("Obtained ", counter, "target image")
+        #PrintSensorTargets(targets,counter,imageFile,rasterImage,power, x_pos, y_pos)
+        #print("Obtained ", counter, "target image")
 
         #alarm when done
         duration = 500
         winsound.Beep(freq, duration)
         stop = input("Press enter to continue")
 
-        freq += 1;
+        freq += 5;
 
         counter += 1
-        x_pos += 2
+        x_pos += increment
 
 
     #rasterImage, _, _, sliceDepth, power = WalabotAPI.GetRawImageSlice()
