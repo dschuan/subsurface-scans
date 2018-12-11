@@ -21,15 +21,18 @@ WalabotAPI = load_source('WalabotAPI',
     'C:/Program Files/Walabot/WalabotSDK/python/WalabotAPI.py')
 WalabotAPI.Init("C:/Program Files/Walabot/WalabotSDK/bin/WalabotAPI.dll")
 
-TX_ANTENNA_NUM = 14
-RX_ANTENNA_NUM = 15
+TX_ANTENNA_NUM = 15
+RX_ANTENNA_NUM = 16
 def plotDB(time, amplitude):
     db = lambda x: -10 * np.log10(abs(x))
+    tome = lambda t: t * 3 * (10**8) /2
     convertDb = np.vectorize(db)
+    convertTime = np.vectorize(tome)
     time_arr = np.asarray(time)
+    time_arr = convertTime(time_arr)
     amp_arr = np.asarray(amplitude)
-    amp_arr = convertDb(amp_arr)
-    plt.ylim(None, 30)
+    #amp_arr = convertDb(amp_arr)
+    plt.ylim(None, 1)
     print("Min amplitude value ", np.min(amp_arr))
     plt.plot(time_arr.tolist(), amp_arr.tolist())
 

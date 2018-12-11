@@ -7,7 +7,7 @@ from imp import load_source
 import winsound
 import matplotlib.pyplot as plt
 import numpy as np
-
+import serial
 
 APP_STATUS = ['STATUS_CLEAN',
 'STATUS_INITIALIZED',
@@ -23,14 +23,20 @@ WalabotAPI.Init("C:/Program Files/Walabot/WalabotSDK/bin/WalabotAPI.dll")
 
 TX_ANTENNA_NUM = 14
 RX_ANTENNA_NUM = 15
+
 def plotDB(time, amplitude):
-    db = lambda x: -10 * np.log10(abs(x))
+    plt.gcf().clear()
+
+    db = lambda x: 10 * np.log10(abs(x))
+    tome = lambda t: t * 3 * (10**8) /2
     convertDb = np.vectorize(db)
+    convertTime = np.vectorize(tome)
     time_arr = np.asarray(time)
+    time_arr = convertTime(time_arr)
     amp_arr = np.asarray(amplitude)
-    amp_arr = convertDb(amp_arr)
-    plt.plot(time_arr.tolist(), amp_arr.tolist())
-    plt.show()
+    #amp_arr = convertDb(amp_arr)
+    print("Max amplitude value ", np.max(amp_arr))
+
 
 def GetSignal(targets, counter, filename, x_pos, y_pos):
     jsonRes = {}
@@ -45,7 +51,7 @@ def GetSignal(targets, counter, filename, x_pos, y_pos):
 
     with open(filename, 'w') as f:
         json.dump(data, f)
-    # plotDB(targets[1], targets[0])
+    plotDB(targets[1], targets[0])
 
 def PrintSensorTargets(targets, counter, filename, rasterImage, power, x_pos, y_pos):
     system('cls' if platform == 'win32' else 'clear')
@@ -121,11 +127,36 @@ def InWallApp(filename):
     #original x_pos = 10, y_pos = 0
     x_pos = 10
     increment = 1
-    y_pos = 10
+    y_pos = 0
+    positionIndex = 0
     while True:
-        if x_pos > 30:
-            y_pos += increment
-            x_pos = 10
+        time.sleep(1)
+        x,y = getPosition(positionIndex)
+        positionIndex += 1
+        x,y = str(x), str(y)
+        x_pos, y_pos = str(x), str(y)
+
+        #send position to walabot
+        msg = ",".join((x,y)).encode('utf-8')
+        print("Sending input to arduino ", msg)
+        ser.write(msg)
+        ser.flush()
+        print("sent")
+
+        #wait for movemen finish
+        msg = b""
+        while(True):
+            time.sleep(1)
+            newInput = ser.read(ser.inWaiting()) # read all characters in buffer
+            msg += newInput
+            if not newInput == b"":
+                print ("Arduino: ",newInput)
+
+            if b"Movement Complete" in msg:
+                break
+
+            if b"Out of bounds" in msg:
+                break
         # 5) Trigger: Scan (sense) according to profile and record signals
         # to be available for processing and retrieval.
 
@@ -153,14 +184,14 @@ def InWallApp(filename):
         #print("Obtained ", counter, "target image")
 
         #alarm when done
-        duration = 500
-        winsound.Beep(freq, duration)
-        stop = input("Press enter to continue")
+        # duration = 500
+        # winsound.Beep(freq, duration)
+        # stop = input("Press enter to continue")
+        #
+        # freq += 5;
+        #
+        # counter += 1
 
-        freq += 5;
-
-        counter += 1
-        x_pos += increment
 
 
     #rasterImage, _, _, sliceDepth, power = WalabotAPI.GetRawImageSlice()
@@ -171,7 +202,42 @@ def InWallApp(filename):
     WalabotAPI.Stop()
     WalabotAPI.Disconnect()
     print ('Terminate successfully')
+def initArduino(ser):
+    msg = b""
+    while(True):
+        newInput = ser.read(ser.inWaiting()) # read all characters in buffer
+        msg += newInput
+
+        if b'init done' in msg:
+            print ("Arduino: ",newInput)
+            break
+
+
+
+
+def getPosition(positionIndex):
+
+    # define the lower and upper limits for x and y
+    minX, maxX, minY, maxY = 40, 80, 30, 70
+    # create one-dimensional arrays for x and y
+    lineSpacing = 10
+    x = np.linspace(minX, maxX, (maxX - minX)/lineSpacing + 1)
+    y = np.linspace(minY, maxY, (maxY - minY)/lineSpacing + 1)
+    # create the mesh based on these arrays
+    X, Y = np.meshgrid(x, y)
+    X = X.reshape((np.prod(X.shape),))
+    Y = Y.reshape((np.prod(Y.shape),))
+    coords = list(zip(X, Y))
+
+    positionIndexMod = positionIndex % (len(coords))
+    position = coords[positionIndexMod]
+
+    return position
+
+
 if __name__ == '__main__':
+    ser = serial.Serial('COM5', 9600, timeout=1)
+    initArduino(ser)
     filename = input("Key in experiment name: ")
     filename = './results/' + filename
     paths = [filename+'.json', filename+'_simple.json']

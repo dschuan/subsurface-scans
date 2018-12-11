@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-with open('./results/water_2_cm.json') as f:
+with open('./results/cover_box_line_reflector.json') as f:
     data = json.load(f)
 
 
