@@ -6,19 +6,18 @@ const int dirPin1 = 3;
 const int stepPin2 = 4; 
 const int dirPin2 = 5;
 
-const int W = 120;
+const float W = 120;
 
-const int w = 7;
+const float w = 7;
 
-float curr_x = 61.5;
-float curr_y = 60;
+float curr_x = 61;
+float curr_y = 67.5;
 
 
 float curr_l1 = sqrt(sq(curr_x - w/2)+sq(curr_y)) ;
-float curr_l2 = sqrt(sq(W - (curr_x + w/2))+sq(curr_y)) ;
-
-
-const float steplength = 0.035;
+float curr_l2 = sqrt(sq(W - (curr_x + w/2))+sq(curr_y));
+//float curr_l2 = 1.058342 * raw_l2 - 8.409091;
+const float steplength = 0.03675;
 
 
 
@@ -47,15 +46,15 @@ void loop()
       String first = Serial.readStringUntil(',');
       Serial.read();
       String second = Serial.readStringUntil('\0');
-      int new_x = first.toInt();
-      int new_y = second.toInt(); 
+      float new_x = first.toFloat();
+      float new_y = second.toFloat(); 
       moveTo(new_x, new_y);
       
 
     }
 }
 
-void moveTo(int x, int y)
+void moveTo(float x, float y)
 {
   //Moving to coordinate (x,y)
   Serial.print("Moving to (");
@@ -67,7 +66,7 @@ void moveTo(int x, int y)
   //Calculate new length for each spool needed for the new coordinate
   float l1 = sqrt(sq(x - (w/2)) + sq(y));
   float l2 = sqrt(sq(W - (x + (w/2))) + sq(y));
-  l2 = 1.078342 * l2 - 8.409091;
+  //l2 = 1.058342 * l2 - 8.409091;
   Serial.print("l1:");
   Serial.print(l1);
   Serial.print("\n\n");

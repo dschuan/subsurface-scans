@@ -218,7 +218,9 @@ def initArduino(ser):
 def getPosition(positionIndex):
 
     # define the lower and upper limits for x and y
-    minX, maxX, minY, maxY = 40, 80, 30, 70
+    startY = 67.5
+    startX = 61
+    minX, maxX, minY, maxY = startX-20, startX+20, startY-10, startY+10
     # create one-dimensional arrays for x and y
     lineSpacing = 10
     x = np.linspace(minX, maxX, (maxX - minX)/lineSpacing + 1)
@@ -235,8 +237,9 @@ def getPosition(positionIndex):
     return position
 
 
+
 if __name__ == '__main__':
-    ser = serial.Serial('COM5', 9600, timeout=1)
+    ser = serial.Serial('COM3', 9600, timeout=1)
     initArduino(ser)
     filename = input("Key in experiment name: ")
     filename = './results/' + filename
