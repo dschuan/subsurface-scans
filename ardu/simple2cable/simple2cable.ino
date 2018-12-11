@@ -17,7 +17,7 @@ float curr_y = 67.5;
 float curr_l1 = sqrt(sq(curr_x - w/2)+sq(curr_y)) ;
 float curr_l2 = sqrt(sq(W - (curr_x + w/2))+sq(curr_y));
 //float curr_l2 = 1.058342 * raw_l2 - 8.409091;
-const float steplength = 0.03675;
+const float steplength = 0.03255;
 
 
 
