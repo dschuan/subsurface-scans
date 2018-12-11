@@ -1,4 +1,3 @@
-
 #include <Stepper.h>
 
 //Stepper motor pins
@@ -9,14 +8,17 @@ const int dirPin2 = 5;
 
 const int W = 120;
 
-float curr_l1 = 78.1;
-float curr_l2 = 78.1;
+const int w = 7;
+
+float curr_x = 61.5;
+float curr_y = 60;
+
+
+float curr_l1 = sqrt(sq(curr_x - w/2)+sq(curr_y)) ;
+float curr_l2 = sqrt(sq(W - (curr_x + w/2))+sq(curr_y)) ;
 
 
 const float steplength = 0.035;
-
-float curr_x = 60;
-float curr_y = 50;
 
 
 
@@ -63,9 +65,9 @@ void moveTo(int x, int y)
   Serial.print(")\n"); 
 
   //Calculate new length for each spool needed for the new coordinate
-  float l1 = sqrt(sq(x) + sq(y));
-  float l2 = sqrt(sq(W -x) + sq(y));
-
+  float l1 = sqrt(sq(x - (w/2)) + sq(y));
+  float l2 = sqrt(sq(W - (x + (w/2))) + sq(y));
+  l2 = 1.078342 * l2 - 8.409091;
   Serial.print("l1:");
   Serial.print(l1);
   Serial.print("\n\n");
@@ -147,5 +149,7 @@ void moveTo(int x, int y)
   curr_l1 = l1;
   curr_l2 = l2; 
 
+  curr_x = x;
+  curr_y = y;
   
 }

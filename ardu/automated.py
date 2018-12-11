@@ -7,9 +7,11 @@ import numpy as np
 def getPosition(positionIndex):
 
     # define the lower and upper limits for x and y
-    minX, maxX, minY, maxY = 40, 80, 30, 70
+    startY = 61.5
+    startX = 60
+    minX, maxX, minY, maxY = startX-20, startX+20, startY-20, startY+20
     # create one-dimensional arrays for x and y
-    lineSpacing = 10
+    lineSpacing = 20
     x = np.linspace(minX, maxX, (maxX - minX)/lineSpacing + 1)
     y = np.linspace(minY, maxY, (maxY - minY)/lineSpacing + 1)
     # create the mesh based on these arrays
@@ -42,7 +44,7 @@ positionIndex = 0
 while(True):
 
 
-    time.sleep(1)
+    time.sleep(0.3)
     x,y = getPosition(positionIndex)
     x,y = str(x), str(y)
     positionIndex += 1
