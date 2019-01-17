@@ -22,16 +22,13 @@ APP_STATUS = ['STATUS_CLEAN',
 'STATUS_SCANNING',
 'STATUS_CALIBRATING',
 'STATUS_CALIBRATING_NO_MOVEMENT']
-
 if platform == 'win32':
 	modulePath = join('C:/', 'Program Files', 'Walabot', 'WalabotSDK',
 		'python', 'WalabotAPI.py')
 elif platform.startswith('linux'):
-	modulePath = join('/usr', 'share', 'walabot', 'python', 'WalabotAPI.py')
-
+    modulePath = join('/usr', 'share', 'walabot', 'python', 'WalabotAPI.py')
 wlbt = load_source('WalabotAPI', modulePath)
 wlbt.Init()
-
 def PrintSensorTargets(targets):
 	system('cls' if platform == 'win32' else 'clear')
 	if targets:
@@ -81,7 +78,6 @@ def InWallApp():
 
 	fig = plt.figure()
 	while True:
-
 		#appStatus, calibrationProcess = wlbt.GetStatus()
 		# 5) Trigger: Scan (sense) according to profile and record signals
 		# to be available for processing and retrieval.
@@ -95,8 +91,9 @@ def InWallApp():
 		xArray = [0]
 		yArray = [0]
 		zArray = [0]
-
+		np.save("./results/rasterimage", rasterImage)
 		print(rasterImage)
+
 		print(power)
 		for (x,y,z), value in np.ndenumerate(rasterImage):
 			if value > 100 and power > 1:
@@ -119,7 +116,7 @@ def InWallApp():
 		#plt.imshow(rasterImage)
 		plt.show(block = False)
 		#print(rasterImage.shape)
-		plt.pause(0.2)
+		plt.pause(5)
 		plt.gcf().clear()
 
 

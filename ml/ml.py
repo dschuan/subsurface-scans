@@ -19,7 +19,7 @@ batch_size = 128
 
 # raw json processing variables
 SAMPLE_SIZE = 1000
-SAMPLE_KEEP_PROB = 0.1
+SAMPLE_KEEP_PROB = 0.3
 
 seed = 10
 np.random.seed(seed)

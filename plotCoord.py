@@ -3,6 +3,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import hilbert
+from ast import literal_eval as make_tuple
 
 def findMin(amplitude):
 	db = lambda x: -10 * np.log10(abs(x))
@@ -30,6 +31,7 @@ def twoDimPlot(data):
 	keys = data.values()
 	y_val = []
 	x_val = []
+
 	for key in keys:
 		coord = key['coord']
 		y_val.append(coord[1])
@@ -58,18 +60,63 @@ def twoDimPlot(data):
 	plt.plot(scanArray[:,int(X_LENGTH/2 - X_OFFSET)])
 	plt.show()
 
-	truthArray = np.zeros_like(scanArray)
-	print(truthArray.shape)
-	truthArray[13,:] = np.ones(Y_LENGTH)
+	# truthArray = np.zeros_like(scanArray)
+	# print(truthArray.shape)
+	# truthArray[13,:] = np.ones(Y_LENGTH)
+	#
+	# plt.imshow(truthArray)
+	# plt.show()
 
-	plt.imshow(truthArray)
+def arrayPlot(data):
+	keys = data.keys()
+	y_val = []
+	x_val = []
+	for key in keys:
+		print("key",key)
+		scans = data[key]
+
+
+
+	tx_val = []
+	rx_val = []
+	scankeys = scans.keys()
+
+	count = 0
+	for scankey in scankeys:
+		count = count + 1
+		coord = make_tuple(scankey)
+		tx_val.append(coord[1])
+		rx_val.append(coord[0])
+
+	print("Number of pairs: ",count)
+
+	RX_LENGTH = max(rx_val) - min(rx_val) + 1
+	TX_LENGTH = max(tx_val) - min(tx_val) + 1
+	TX_OFFSET =  min(tx_val)
+	RX_OFFSET =  min(rx_val)
+
+	print( " RX_LENGTH ",RX_LENGTH," TX_LENGTH ",TX_LENGTH," TX_OFFSET ",TX_OFFSET," RX_OFFSET ",RX_OFFSET)
+
+
+	scanArray = np.zeros(shape=(RX_LENGTH + 1,TX_LENGTH + 1))
+	for scankey in scankeys:
+		scan = scans[scankey]
+		amp = scan['amplitude']
+		pair = make_tuple(scankey)
+		scanArray[pair[0]][pair[1]] = findMin(amp)
+
+	print(scanArray.shape)
+	print(scanArray[0])
+	plt.imshow(scanArray)
+	plt.colorbar()
 	plt.show()
 
 
 
-with open('./results/dec_corner_reflector_openbox4.json') as f:
+
+with open('./results/array_scan_B1.json') as f:
 	data = json.load(f)
-	twoDimPlot(data)
+	arrayPlot(data)
 	# keys = list(data.values())
 	# key = keys[10]
 	# signal = np.asarray(key['amplitude'])
