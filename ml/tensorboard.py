@@ -6,6 +6,10 @@ import pickle
 import random
 import json
 from processJSON import processJSON
+from datetime import datetime
+
+now = datetime.now()
+logdir = "./logs/" + now.strftime("%Y%m%d-%H%M%S") + "/"
 
 #size of input
 IMG_SIZE_X = 21
@@ -13,13 +17,13 @@ IMG_SIZE_Y = 5
 NUM_CHANNELS = 2
 
 #ml variables
-learning_rate = 0.001
+learning_rate = 0.005
 epochs = 1000
 batch_size = 128
 
 # raw json processing variables
 SAMPLE_SIZE = 1000
-SAMPLE_KEEP_PROB = 0.3
+SAMPLE_KEEP_PROB = 0.9
 
 seed = 10
 np.random.seed(seed)
@@ -48,7 +52,20 @@ def sampleArray(input):
 	return sampleArray
 
 def poll(probability):
-    return random.random() < probability
+	return random.random() < probability
+
+
+def variable_summaries(var):
+	"""Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+	with tf.name_scope('summaries'):
+		mean = tf.reduce_mean(var)
+		tf.summary.scalar('mean', mean)
+		with tf.name_scope('stddev'):
+			stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+		tf.summary.scalar('stddev', stddev)
+		tf.summary.scalar('max', tf.reduce_max(var))
+		tf.summary.scalar('min', tf.reduce_min(var))
+		tf.summary.histogram('histogram', var)
 
 
 def oneFilter(images):
@@ -57,17 +74,38 @@ def oneFilter(images):
 	FILTER_SIZE = 5
 	images = tf.reshape(images, [-1, IMG_SIZE_X, IMG_SIZE_Y, NUM_CHANNELS])
 
-	#Conv 1
-	W1 = tf.Variable(tf.truncated_normal([FILTER_SIZE, FILTER_SIZE, NUM_CHANNELS, NUM_FILTERS], stddev=1.0/np.sqrt(NUM_CHANNELS*FILTER_SIZE*FILTER_SIZE)), name='weights_1')
-	b1 = tf.Variable(tf.zeros([NUM_FILTERS]), name='biases_1')
-	print("images",images.get_shape())
-	#tf.nn.conv2d(input,filter,strides,padding,)
-	conv_1 = tf.nn.relu(tf.nn.conv2d(images, W1, [1, 1, 1, 1], padding='SAME') + b1)
-	print("conv_1",conv_1.get_shape())
+	with tf.variable_scope('conv1') as scope:
+		#Conv 1
+		with tf.name_scope('weights'):
+			W1 = tf.Variable(tf.truncated_normal([FILTER_SIZE, FILTER_SIZE, NUM_CHANNELS, NUM_FILTERS], stddev=1.0/np.sqrt(NUM_CHANNELS*FILTER_SIZE*FILTER_SIZE)), name='weights_1')
+			variable_summaries(W1)
+			print("w1",W1.get_shape())
 
-	dim_1 = conv_1.get_shape()[1].value * conv_1.get_shape()[2].value * conv_1.get_shape()[3].value
-	pool_1_flat = tf.reshape(conv_1, [-1, dim_1])
-	print("pool_1_flat",pool_1_flat.get_shape())
+			filterImage, presenceImage = tf.split(W1, num_or_size_splits=2, axis=2)
+			print("filterImage",filterImage.get_shape())
+			filterImage = tf.reshape (filterImage, [-1, FILTER_SIZE, FILTER_SIZE, 1])
+			presenceImage = tf.reshape (presenceImage, [-1, FILTER_SIZE, FILTER_SIZE, 1])
+			print("filterImage",filterImage.get_shape())
+			tf.summary.image('filterImage',filterImage)
+			tf.summary.image('presenceImage',presenceImage)
+
+		with tf.name_scope('biases'):
+			b1 = tf.Variable(tf.zeros([NUM_FILTERS]), name='biases_1')
+			variable_summaries(b1)
+
+		print("images",images.get_shape())
+
+		#tf.nn.conv2d(input,filter,strides,padding,)
+		with tf.name_scope('output'):
+			conv_1 = tf.nn.relu(tf.nn.conv2d(images, W1, [1, 1, 1, 1], padding='SAME') + b1)
+			print("conv_1",conv_1.get_shape())
+			tf.summary.image('conv_1',conv_1)
+
+		dim_1 = conv_1.get_shape()[1].value * conv_1.get_shape()[2].value * conv_1.get_shape()[3].value
+		pool_1_flat = tf.reshape(conv_1, [-1, dim_1])
+		print("pool_1_flat",pool_1_flat.get_shape())
+
+
 
 
 
@@ -114,8 +152,6 @@ def main():
 	trainX, trainY = trainX[:int(numSamples*0.7)],trainY[:int(numSamples*0.7)]
 	print(trainX.shape, trainY.shape)
 
-
-
 	# testX = (testX - np.min(trainX, axis = 0))/np.max(trainX, axis = 0)
 	# trainX = (trainX - np.min(trainX, axis = 0))/np.max(trainX, axis = 0)
 
@@ -129,8 +165,9 @@ def main():
 	print("logits", logits.shape)
 	# cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_, logits=logits)
 	# loss = tf.reduce_mean(cross_entropy)
-
-	loss = tf.reduce_mean(tf.squared_difference(logits, y_))
+	with tf.name_scope('loss'):
+		loss = tf.reduce_mean(tf.squared_difference(logits, y_))
+	tf.summary.scalar('loss', loss)
 
 
 	# correct_prediction = tf.cast(tf.equal(tf.argmax(logits, 1), tf.argmax(y_, 1)), tf.float32)
@@ -140,10 +177,14 @@ def main():
 	train_step = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
 	N = len(trainX)
 	idx = np.arange(N)
-	lossArr = []
-	testArr = []
 	saver = tf.train.Saver()
+
+
 	with tf.Session() as sess:
+		merged = tf.summary.merge_all()
+		train_writer = tf.summary.FileWriter(logdir + 'train', sess.graph)
+		test_writer = tf.summary.FileWriter(logdir + 'test')
+
 		sess.run(tf.global_variables_initializer())
 
 		for e in range(epochs):
@@ -151,42 +192,21 @@ def main():
 			trainX, trainY = trainX[idx], trainY[idx]
 
 			for start, end in zip(range(0, trainX.shape[0], batch_size), range(batch_size, trainX.shape[0], batch_size)):
-				sess.run([train_step, loss],feed_dict={x: trainX[start:end], y_: trainY[start:end]})
+				sess.run(train_step,feed_dict={x: trainX[start:end], y_: trainY[start:end]})
 
-
-			loss_ = loss.eval({x: trainX, y_: trainY})
-			lossArr.append(loss_)
-			testArr.append(loss.eval(feed_dict={x: testX, y_: testY}))
-			if e%100 == 0:
+			if e%10 == 0:
+				loss_ = loss.eval({x: trainX, y_: trainY})
+				summary = sess.run(merged, feed_dict={x: trainX, y_: trainY})
+				train_writer.add_summary(summary, e)
+				summary = sess.run(merged, feed_dict={x: testX, y_: testY})
+				test_writer.add_summary(summary, e)
 
 				print('epoch', e, 'entropy', loss_)
 
-		save_path = saver.save(sess, "./testmodel.ckpt")
+		save_path = saver.save(sess, "./model/testmodel.ckpt")
 		print("Model saved in path: %s" % save_path)
 
 
-		plt.figure(1)
-		plt.plot(range(epochs), lossArr)
-		plt.xlabel(str(epochs) + ' iterations')
-		plt.ylabel('Cross Entropy (Loss)')
-
-		plt.figure(2)
-		plt.plot(range(epochs), testArr)
-		plt.xlabel(str(epochs) + ' iterations')
-		plt.ylabel('Test Loss')
-
-		plt.show()
-
-		ind = 5
-		exampleX = trainX[ind,:].reshape([-1,210])
-		exampleY = logits.eval(feed_dict = {x:exampleX})
-		print("exampleY shape",exampleY.shape)
-		plt.figure()
-		plt.gray()
-		exampleY = exampleY.reshape(21, 5)
-		plt.axis('off')
-		plt.imshow(exampleY)
-		plt.savefig('./prediction/' + str(SAMPLE_KEEP_PROB) + '.png')
 
 
 if __name__ == '__main__':
