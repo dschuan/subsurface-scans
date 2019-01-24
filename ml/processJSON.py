@@ -13,6 +13,29 @@ def findMin(amplitude):
 	amp_arr = convertDb(amp_arr)
 	return np.amin(amp_arr)
 
+def processGroundTruth(point_pairs,array,radius,value):
+
+
+
+	for point_pair in point_pairs:
+		line_point1,line_point2 = point_pair
+		line_point1 = np.asarray(line_point1)
+		line_point2 = np.asarray(line_point2)
+
+		for x in range(0, array.shape[0]):
+			for y in range(0,  array.shape[1]):
+				point = np.asarray((x,y))
+
+				dist = np.abs(np.cross(line_point2-line_point1, line_point1-point)) / np.linalg.norm(line_point2-line_point1)
+
+				if dist < radius:
+					array[x][y] = max(value,array[x][y])
+
+	return array
+
+
+
+
 def processJSON(data):
 	keys = data.values()
 	y_val = []
@@ -38,11 +61,11 @@ def processJSON(data):
 		scanArray[coord[0]-X_OFFSET][coord[1]-Y_OFFSET] = findMin(amp)
 
 
-	# plt.imshow(scanArray)
-	# plt.show()
-	#
-	# plt.plot(scanArray[:,int(X_LENGTH/2 - X_OFFSET)])
-	# plt.show()
+	plt.imshow(scanArray)
+	plt.show()
+
+	plt.plot(scanArray[:,int(X_LENGTH/2 - X_OFFSET)])
+	plt.show()
 
 	truthArray = np.zeros_like(scanArray)
 	truthArray[13,:] = np.ones(Y_LENGTH)
@@ -50,3 +73,25 @@ def processJSON(data):
 	# plt.imshow(truthArray)
 	# plt.show()
 	return (scanArray,truthArray)
+
+if __name__ == "__main__":
+	grid_size = 20
+	array = np.zeros((grid_size,grid_size))
+
+	line = [((0,10),(10,20))]
+	value = 1
+	radius = 1
+	array = processGroundTruth(line,array,radius,value)
+
+	line = [((0,3),(20,8))]
+	value = 2
+	radius = 3
+	array = processGroundTruth(line,array,radius,value)
+
+	line = [((15,0),(1,20))]
+	value = 3
+	radius = 0.5
+	array = processGroundTruth(line,array,radius,value)
+
+	plt.imshow(array)
+	plt.show()
