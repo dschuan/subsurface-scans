@@ -25,11 +25,13 @@ WalabotAPI = load_source('WalabotAPI',
 WalabotAPI.Init("C:/Program Files/Walabot/WalabotSDK/bin/WalabotAPI.dll")
 
 
-startY =10
-endy =30
+startY = 10
+endy = 30
 startX = 5
 endx = 25
 lineSpacing = 1
+port = 'COM8'
+
 def getPosition(startY,startX,endy,endx,lineSpacing):
 
     # define the lower and upper limits for x and y
@@ -55,8 +57,7 @@ def getPosition(startY,startX,endy,endx,lineSpacing):
     return coords
 
 def InWallApp(filename):
-    rawSignalFile = filename+'.json'
-    imageFile = filename+'_simple.json'
+
     # WalabotAPI.SetArenaX - input parameters
     xArenaMin, xArenaMax, xArenaRes = -3, 4, 0.5
     # WalabotAPI.SetArenaY - input parameters
@@ -84,13 +85,11 @@ def InWallApp(filename):
         print("Starting up ", APP_STATUS[appStatus], "percentage", calibrationProcess )
         for _ in range(10):
             WalabotAPI.Trigger()
-
-    XYtable = xytable('COM7')
+    global port
+    XYtable = xytable(port)
     XYtable.open()
 
-    pairs = WalabotAPI.GetAntennaPairs();
-
-    # start = input("scan now?")
+    #pairs = WalabotAPI.GetAntennaPairs();
 
     WalabotAPI.Trigger()
     pairs = WalabotAPI.GetAntennaPairs();
@@ -109,6 +108,9 @@ def InWallApp(filename):
 
     TX_ANTENNA_NUM = 14
     RX_ANTENNA_NUM = 15
+
+    scanList = []
+
     for xpos, ypos in coords:
         print('setting xytable to ',xpos,' ',ypos)
         XYtable.set_position(xpos,ypos)
@@ -116,6 +118,12 @@ def InWallApp(filename):
         print('getting signal from walabot')
         WalabotAPI.Trigger()
         print('received signal from walabot')
+
+        scan = defaultdict(lambda:defaultdict(int))
+        scan['coord'] = str((xpos, ypos))
+
+        pairList = []
+
         for pair in pairs:
             if pair.txAntenna == TX_ANTENNA_NUM and pair.rxAntenna == RX_ANTENNA_NUM:
                 coordResult = {}
@@ -124,18 +132,24 @@ def InWallApp(filename):
 
 
 
-                pairResult = {}
-                pairResult['time'] = targets[1]
-                pairResult['amplitude'] = targets[0]
+                body = defaultdict(lambda:defaultdict(int))
+                body['pair'] = (str((pair.txAntenna, pair.rxAntenna)))
+                body['time'] = targets[1]
+                body['amplitude'] = targets[0]
 
-                coordResult[str((pair.txAntenna,pair.rxAntenna))] = pairResult
-                result[str((xpos,ypos))].update(coordResult)
+                pairList.append(body)
+                #coordResult[str((pair.txAntenna,pair.rxAntenna))] = body
+                #result[str((xpos,ypos))].update(coordResult)
+        scan['body'] = pairList
+        scanList.append(scan)
 
-    print(result.keys())
+    result['scan'] = scanList
+
+    print(len(result['scan']))
     with open(filename, 'w') as f:
         json.dump(result, f)
-
-    with open(filename+'_desc', 'w') as f:
+    desc = filename.replace('.json', '_desc.json')
+    with open(desc, 'w') as f:
         json.dump(description, f)
 
     WalabotAPI.Stop()
@@ -147,7 +161,7 @@ def InWallApp(filename):
 
 if __name__ == '__main__':
     filename = input("Key in experiment name: ")
-    filename = './results/' + filename
+    filename = './results/' + filename+'.json'
     with open(filename, 'w+') as f:
         json.dump({}, f)
 
