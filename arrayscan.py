@@ -10,6 +10,7 @@ import numpy as np
 import serial
 from xytable.pydrive import xytable
 from collections import defaultdict
+import random
 
 APP_STATUS = ['STATUS_CLEAN',
 'STATUS_INITIALIZED',
@@ -25,8 +26,8 @@ WalabotAPI = load_source('WalabotAPI',
 WalabotAPI.Init("C:/Program Files/Walabot/WalabotSDK/bin/WalabotAPI.dll")
 
 
-startY = 10
-endy = 30
+startY = 20
+endy = 40
 startX = 5
 endx = 25
 lineSpacing = 1
@@ -57,7 +58,9 @@ def getPosition(startY,startX,endy,endx,lineSpacing):
     return coords
 
 def InWallApp(filename):
-
+    # Choose TX and RX antenna data to use
+    TX_ANTENNA_NUM = 14
+    RX_ANTENNA_NUM = 15
     # WalabotAPI.SetArenaX - input parameters
     xArenaMin, xArenaMax, xArenaRes = -3, 4, 0.5
     # WalabotAPI.SetArenaY - input parameters
@@ -77,17 +80,23 @@ def InWallApp(filename):
     # 3) Start: Start the system in preparation for scanning.
     WalabotAPI.Start()
     # calibrates scanning to ignore or reduce the signals
+
+    global port
+    XYtable = xytable(port)
+    XYtable.open()
+
     WalabotAPI.StartCalibration()
     appStatus = -1
     while appStatus != 4:
         appStatus, calibrationProcess = WalabotAPI.GetStatus()
-
+        xpos = random.randint(startX, endx)
+        ypos = random.randint(startY, endY)
         print("Starting up ", APP_STATUS[appStatus], "percentage", calibrationProcess )
-        for _ in range(10):
-            WalabotAPI.Trigger()
-    global port
-    XYtable = xytable(port)
-    XYtable.open()
+        XYtable.set_position(xpos, ypos)
+        WalabotAPI.Trigger()
+
+
+
 
     #pairs = WalabotAPI.GetAntennaPairs();
 
@@ -104,10 +113,23 @@ def InWallApp(filename):
     description['endy'] = endy
     description['endx'] = endx
     description['lineSpacing'] = lineSpacing
-    description['description'] = input('describe experiment')
+    items = int(input('how many items are there?'))
+    truth = []
+    for i in range(items):
+        print('For item ', i+1, ':')
+        mat = input('Enter material')
+        start = input('Start coord of material in format x, y')
+        start = '(' + start + ')'
+        end = input('end coord of material in format x, y')
+        end = '(' + end + ')'
 
-    TX_ANTENNA_NUM = 14
-    RX_ANTENNA_NUM = 15
+        truth.append({'material': mat, 'start': start, 'end': end})
+
+    description['truth'] = truth
+    while(True):
+        startnow = input('ready to start? yes')
+        if(startnow) == 'yes':
+            break
 
     scanList = []
 

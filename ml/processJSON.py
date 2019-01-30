@@ -50,10 +50,10 @@ def processJSON(data):
 		x_val.append(coord[0])
 
 
-	X_LENGTH = max(x_val) - min(x_val) + 1
-	Y_LENGTH = max(y_val) - min(y_val) + 1
-	Y_OFFSET =  min(y_val)
-	X_OFFSET =  min(x_val)
+	X_LENGTH = max(x_val) - min(x_val)
+	Y_LENGTH = max(y_val) - min(y_val)
+	Y_OFFSET =  min(y_val) + 1
+	X_OFFSET =  min(x_val) + 1
 
 	print( " X_LENGTH ",X_LENGTH," Y_LENGTH ",Y_LENGTH," Y_OFFSET ",Y_OFFSET," X_OFFSET ",X_OFFSET)
 
@@ -103,9 +103,25 @@ if __name__ == "__main__":
 	# plt.imshow(array)
 	# plt.show()
 
-	with open('../results/metal_ruler.json') as f:
-		data = json.load(f)
-		scanArray,truthArray = processJSON(data)
+	with open('../results/two_metal_rulers.json') as f1:
+		plt.figure(1)
+		plt.title('first')
+		data1 = json.load(f1)
+		scanArray1,truthArray = processJSON(data1)
+		plt.imshow(scanArray1)
 
-		plt.imshow(scanArray)
-		plt.show()
+		with open('../results/middle_cali_3_item.json') as f2:
+			plt.figure(2)
+			plt.title('seecond')
+			data = json.load(f2)
+			scanArray,truthArray = processJSON(data)
+			plt.imshow(scanArray)
+
+
+			with open('../results/cali_3_obj.json') as f3:
+				plt.figure(3)
+
+				data2 = json.load(f3)
+				scanArray2,truthArray = processJSON(data2)
+				plt.imshow(scanArray2)
+				plt.show()
