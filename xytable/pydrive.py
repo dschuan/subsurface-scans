@@ -81,7 +81,7 @@ class xytable():
         self.y_move()
         self.x_move()
         print('distance',distance)
-        time.sleep(1 + distance/10)
+        time.sleep(1.1 + distance/10)
 
     def close(self):
         #initialise

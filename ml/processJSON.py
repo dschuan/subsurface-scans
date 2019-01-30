@@ -50,10 +50,10 @@ def processJSON(data):
 		x_val.append(coord[0])
 
 
-	X_LENGTH = max(x_val) - min(x_val) + 1
-	Y_LENGTH = max(y_val) - min(y_val) + 1
-	Y_OFFSET =  min(y_val)
-	X_OFFSET =  min(x_val)
+	X_LENGTH = max(x_val) - min(x_val)
+	Y_LENGTH = max(y_val) - min(y_val)
+	Y_OFFSET =  min(y_val) + 1
+	X_OFFSET =  min(x_val) + 1
 
 	print( " X_LENGTH ",X_LENGTH," Y_LENGTH ",Y_LENGTH," Y_OFFSET ",Y_OFFSET," X_OFFSET ",X_OFFSET)
 
