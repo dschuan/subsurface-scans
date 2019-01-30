@@ -82,30 +82,31 @@ def processJSON(data):
 	return (scanArray,truthArray)
 
 if __name__ == "__main__":
-	# grid_size = 20
-	# array = np.zeros((grid_size,grid_size))
-	#
-	# line = [((0,10),(10,20))]
-	# value = 1
-	# radius = 1
-	# array = processGroundTruth(line,array,radius,value)
-	#
-	# line = [((0,3),(20,8))]
-	# value = 2
-	# radius = 3
-	# array = processGroundTruth(line,array,radius,value)
-	#
-	# line = [((15,0),(1,20))]
-	# value = 3
-	# radius = 0.5
-	# array = processGroundTruth(line,array,radius,value)
-	#
-	# plt.imshow(array)
+	grid_size = 20
+	array = np.zeros((grid_size,grid_size))
+
+	line = [((0,10),(10,20))]
+	value = 1
+	radius = 1
+	array = processGroundTruth(line,array,radius,value)
+
+	line = [((0,3),(20,8))]
+	value = 2
+	radius = 3
+	array = processGroundTruth(line,array,radius,value)
+
+	line = [((15,0),(1,20))]
+	value = 3
+	radius = 0.5
+	array = processGroundTruth(line,array,radius,value)
+
+	plt.figure(1)
+	plt.imshow(array)
 	# plt.show()
 
-	with open('../results/metal_ruler.json') as f:
+	with open('../results/multiple_obj.json') as f:
 		data = json.load(f)
 		scanArray,truthArray = processJSON(data)
-
+		plt.figure(2)
 		plt.imshow(scanArray)
 		plt.show()
