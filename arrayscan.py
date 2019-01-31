@@ -81,6 +81,35 @@ def InWallApp(filename):
     WalabotAPI.Start()
     # calibrates scanning to ignore or reduce the signals
 
+    result = defaultdict(lambda:defaultdict(int))
+    description = defaultdict(lambda:defaultdict(int))
+
+    description['startY'] = startY
+    description['startX'] = startX
+    description['endy'] = endy
+    description['endx'] = endx
+    description['lineSpacing'] = lineSpacing
+
+    items = int(input('how many items are there?'))
+    truth = []
+    for i in range(items):
+        print('For item ', i+1, ':')
+        mat = input('Enter material')
+        start = input('Start coord of material in format x, y')
+        start = '(' + start + ')'
+        end = input('end coord of material in format x, y')
+        end = '(' + end + ')'
+
+        truth.append({'material': mat, 'start': start, 'end': end})
+
+    description['truth'] = truth
+
+    while(True):
+        startnow = input('ready to start? yes')
+        if(startnow) == 'yes':
+            break
+
+
     global port
     XYtable = xytable(port)
     XYtable.open()
@@ -105,31 +134,8 @@ def InWallApp(filename):
 
     coords = getPosition(startY,startX,endy,endx,lineSpacing)
 
-    result = defaultdict(lambda:defaultdict(int))
-    description = defaultdict(lambda:defaultdict(int))
 
-    description['startY'] = startY
-    description['startX'] = startX
-    description['endy'] = endy
-    description['endx'] = endx
-    description['lineSpacing'] = lineSpacing
-    items = int(input('how many items are there?'))
-    truth = []
-    for i in range(items):
-        print('For item ', i+1, ':')
-        mat = input('Enter material')
-        start = input('Start coord of material in format x, y')
-        start = '(' + start + ')'
-        end = input('end coord of material in format x, y')
-        end = '(' + end + ')'
 
-        truth.append({'material': mat, 'start': start, 'end': end})
-
-    description['truth'] = truth
-    while(True):
-        startnow = input('ready to start? yes')
-        if(startnow) == 'yes':
-            break
 
     scanList = []
 
