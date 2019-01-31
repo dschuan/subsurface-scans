@@ -8,18 +8,39 @@ from ast import literal_eval as make_tuple
 MATERIALS = {
 	'pvc' : {
 		'size' : 2,
-		'shape' : 'cylinder'
+		'shape' : 'cylinder',
+		'layer' : 'bottom',
+		'value': 1
 	},
 
 	'wood' : {
 		'size' : 2,
-		'shape' : 'cylinder'
+		'shape' : 'cylinder',
+		'layer' : 'bottom',
+		'value': 2
 	},
 
 	'metal' : {
 		'size' : 1.3,
-		'shape' : 'rectangular'
+		'shape' : 'rectangular',
+		'layer' : 'bottom',
+		'value': 3
+	},
+
+	'aluminum' : {
+		'size' : 2.5,
+		'shape' : 'flat',
+		'layer' : 'top',
+		'value': 4
+	},
+
+	'wire' : {
+		'size' : 0.7,
+		'shape' : 'cylinder',
+		'layer' : 'bottom',
+		'value': 5
 	}
+
 }
 def findMin(amplitude):
 	db = lambda x: -10 * np.log10(abs(x))
@@ -97,29 +118,33 @@ def processJSON(data):
 	return (scanArray,truthArray)
 
 if __name__ == "__main__":
+
 	grid_size = 20
 	array = np.zeros((grid_size,grid_size))
 
-	line = [((0,10),(10,20))]
-	value = 1
-	radius = 1
-	array = processGroundTruth(line,array,radius,value)
+		# line = [((0,10),(10,20))]
+		# value = 1
+		# radius = 1
+		# array = processGroundTruth(line,array,radius,value)
 
-	line = [((0,3),(20,8))]
-	value = 2
-	radius = 3
-	array = processGroundTruth(line,array,radius,value)
 
-	line = [((15,0),(1,20))]
-	value = 3
-	radius = 0.5
-	array = processGroundTruth(line,array,radius,value)
+	file = '../results/31_01&17,31'
+	# "truth": [{"material": "wood", "start": "(5,40)", "end": "(25,20)"}]}
+	with open(file + '_desc.json') as f:
+		data = json.load(f)
 
-	plt.figure(1)
-	plt.imshow(array)
-	# plt.show()
+		for item in data['truth']:
+			start = make_tuple(item['start'])
+			end = make_tuple(item['end'])
+			line = [(start,end)]
+			radius = MATERIALS[item['material']]['size']
+			value = MATERIALS[item['material']]['value']
+			array = processGroundTruth(line,array,radius,value)
+		plt.figure(1)
+		plt.imshow(array)
 
-	with open('../results/multiple_obj.json') as f:
+
+	with open(file + '.json') as f:
 		data = json.load(f)
 		scanArray,truthArray = processJSON(data)
 		plt.figure(2)
