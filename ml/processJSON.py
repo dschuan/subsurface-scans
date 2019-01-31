@@ -5,7 +5,22 @@ import matplotlib.pyplot as plt
 from scipy.signal import hilbert
 from ast import literal_eval as make_tuple
 
+MATERIALS = {
+	'pvc' : {
+		'size' : 2,
+		'shape' : 'cylinder'
+	},
 
+	'wood' : {
+		'size' : 2,
+		'shape' : 'cylinder'
+	},
+
+	'metal' : {
+		'size' : 1.3,
+		'shape' : 'rectangular'
+	}
+}
 def findMin(amplitude):
 	db = lambda x: -10 * np.log10(abs(x))
 	convertDb = np.vectorize(db)

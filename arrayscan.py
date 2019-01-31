@@ -90,7 +90,7 @@ def InWallApp(filename):
     while appStatus != 4:
         appStatus, calibrationProcess = WalabotAPI.GetStatus()
         xpos = random.randint(startX, endx)
-        ypos = random.randint(startY, endY)
+        ypos = random.randint(startY, endy)
         print("Starting up ", APP_STATUS[appStatus], "percentage", calibrationProcess )
         XYtable.set_position(xpos, ypos)
         WalabotAPI.Trigger()
@@ -167,7 +167,6 @@ def InWallApp(filename):
 
     result['scan'] = scanList
 
-    print(len(result['scan']))
     with open(filename, 'w') as f:
         json.dump(result, f)
     desc = filename.replace('.json', '_desc.json')
@@ -182,7 +181,9 @@ def InWallApp(filename):
 
 
 if __name__ == '__main__':
-    filename = input("Key in experiment name: ")
+    locTime = time.localtime()
+    filename = time.strftime('%d_%m&%H,%M')
+
     filename = './results/' + filename+'.json'
     with open(filename, 'w+') as f:
         json.dump({}, f)
