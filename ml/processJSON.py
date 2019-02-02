@@ -6,7 +6,8 @@ from scipy.signal import hilbert
 from ast import literal_eval as make_tuple
 import glob
 import os
-
+from mpl_toolkits.mplot3d import Axes3D
+NUM_MATERIALS = 4
 MATERIALS = {
 	'pvc' : {
 		'size' : 2,
@@ -34,14 +35,15 @@ MATERIALS = {
 		'shape' : 'flat',
 		'layer' : 'top',
 		'value': 4
-	},
-
-	'wire' : {
-		'size' : 0.7,
-		'shape' : 'cylinder',
-		'layer' : 'bottom',
-		'value': 5
 	}
+	# ,
+	#
+	# 'wire' : {
+	# 	'size' : 0.7,
+	# 	'shape' : 'cylinder',
+	# 	'layer' : 'bottom',
+	# 	'value': 5
+	# }
 
 }
 def findMin(amplitude):
@@ -67,7 +69,7 @@ def processGroundTruth(point_pairs,array,radius,value):
 				dist = np.abs(np.cross(line_point2-line_point1, line_point1-point)) / np.linalg.norm(line_point2-line_point1)
 
 				if dist < radius:
-					array[x][y] = max(value,array[x][y])
+					array[x][y][value-1] = 1
 
 	return array
 
@@ -115,8 +117,8 @@ def processJSON(file):
 	return (scanArray,getTruthArray(file))
 
 def getTruthArray(file):
-	grid_size = 20
-	array = np.zeros((grid_size,grid_size))
+	grid_size = 21
+	array = np.zeros((grid_size,grid_size,NUM_MATERIALS))
 	with open(file + '_desc.json') as f:
 		data = json.load(f)
 
@@ -134,7 +136,7 @@ def getTruthArray(file):
 
 			print('plotting',item['material'],'from',start,'to',end)
 			array = processGroundTruth(line,array,radius,value)
-			array = np.delete(array, (0), axis=0)
+		array = np.delete(array, (0), axis=0)
 	return array
 
 def getFiles(path):
@@ -149,22 +151,42 @@ def getFiles(path):
 	return scans
 
 if __name__ == "__main__":
-
-
-
-		# line = [((0,10),(10,20))]
-		# value = 1
-		# radius = 1
-		# array = processGroundTruth(line,array,radius,value)
-	path ="../results/*.json"
+	path ="../results/31*.json"
 	files = getFiles(path)
 
 	for file in files:
 
 		print('looking at',file)
 		scanArray,truthArray = processJSON(file)
+		print(truthArray.shape)
+		print(scanArray.shape)
+
 		plt.figure(1)
+		axes = plt.gca()
+		axes.set_xlim([0,20])
+		axes.set_ylim([0,19])
 		plt.imshow(scanArray)
-		plt.figure(2)
+
+
+
+		figure = plt.figure(2)
+
+		x,y,z = truthArray.nonzero()
+		ax = figure.add_subplot(111, projection='3d')
+
+		axes = plt.gca()
+		axes.set_xlim([0,20])
+		axes.set_ylim([0,19])
+		axes.set_zlim([0,NUM_MATERIALS-1])
+
+		ax.scatter(x, y, z)
+
+		plt.figure(3)
+		truthArray = truthArray.sum(axis=(2))
+
+		axes = plt.gca()
+		axes.set_xlim([0,20])
+		axes.set_ylim([0,19])
+
 		plt.imshow(truthArray)
 		plt.show()
