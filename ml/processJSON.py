@@ -86,22 +86,22 @@ def processJSON(data):
 		x_val.append(coord[0])
 
 
-	X_LENGTH = max(x_val) - min(x_val)
-	Y_LENGTH = max(y_val) - min(y_val)
-	Y_OFFSET =  min(y_val) + 1
-	X_OFFSET =  min(x_val) + 1
+	X_LENGTH = max(x_val) - min(x_val) + 1
+	Y_LENGTH = max(y_val) - min(y_val) + 1
+	Y_OFFSET =  min(y_val)
+	X_OFFSET =  min(x_val)
 
 	print( " X_LENGTH ",X_LENGTH," Y_LENGTH ",Y_LENGTH," Y_OFFSET ",Y_OFFSET," X_OFFSET ",X_OFFSET)
 
 	scanArray = np.zeros(shape=(X_LENGTH,Y_LENGTH))
 	for result in results:
 		coord = make_tuple(result['coord'])
-		coord = (int(coord[0]),int(coord[1]))
+		coord = (int(coord[0]-X_OFFSET),int(coord[1]-Y_OFFSET))
 
 		body = result['body']
 		amp = body[0]['amplitude']
-
-		scanArray[coord[0]-X_OFFSET][coord[1]-Y_OFFSET] = findMin(amp)
+		print(coord, findMin(amp))
+		scanArray[coord[1]][coord[0]] = findMin(amp)
 
 	#
 	# plt.imshow(scanArray)
@@ -117,10 +117,31 @@ def processJSON(data):
 	# plt.show()
 	return (scanArray,truthArray)
 
-if __name__ == "__main__":
-
+def getTruthArray(file):
 	grid_size = 20
 	array = np.zeros((grid_size,grid_size))
+	with open(file + '_desc.json') as f:
+		data = json.load(f)
+
+		for item in data['truth']:
+			start = make_tuple(item['start'])
+			start = (start[0]-data['startX'],start[1]-data['startY'])
+
+			end = make_tuple(item['end'])
+			end = (end[0]-data['startX'],end[1]-data['startY'])
+
+			line = [(start,end)]
+
+			radius = MATERIALS[item['material']]['size']
+			value = MATERIALS[item['material']]['value']
+
+			print('plotting',item['material'],'from',start,'to',end)
+			array = processGroundTruth(line,array,radius,value)
+
+	return array
+if __name__ == "__main__":
+
+
 
 		# line = [((0,10),(10,20))]
 		# value = 1
@@ -128,20 +149,11 @@ if __name__ == "__main__":
 		# array = processGroundTruth(line,array,radius,value)
 
 
-	file = '../results/31_01&17,31'
+	file = '../results/30_01&14,29'
 	# "truth": [{"material": "wood", "start": "(5,40)", "end": "(25,20)"}]}
-	with open(file + '_desc.json') as f:
-		data = json.load(f)
-
-		for item in data['truth']:
-			start = make_tuple(item['start'])
-			end = make_tuple(item['end'])
-			line = [(start,end)]
-			radius = MATERIALS[item['material']]['size']
-			value = MATERIALS[item['material']]['value']
-			array = processGroundTruth(line,array,radius,value)
-		plt.figure(1)
-		plt.imshow(array)
+	array = getTruthArray(file)
+	plt.figure(1)
+	plt.imshow(array)
 
 
 	with open(file + '.json') as f:
