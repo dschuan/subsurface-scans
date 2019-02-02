@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import hilbert
 from ast import literal_eval as make_tuple
+import glob
+import os
 
 MATERIALS = {
 	'pvc' : {
@@ -72,7 +74,9 @@ def processGroundTruth(point_pairs,array,radius,value):
 
 
 
-def processJSON(data):
+def processJSON(file):
+	with open(file + '.json') as f:
+		data = json.load(f)
 	results = data['scan']
 
 
@@ -100,22 +104,15 @@ def processJSON(data):
 
 		body = result['body']
 		amp = body[0]['amplitude']
-		print(coord, findMin(amp))
-		scanArray[coord[1]][coord[0]] = findMin(amp)
+		# print(coord, findMin(amp))
+		scanArray[coord[0]][coord[1]] = findMin(amp)
 
-	#
-	# plt.imshow(scanArray)
-	# plt.show()
-	#
+	scanArray = np.delete(scanArray, (0), axis=0)
+	##cross section
 	# plt.plot(scanArray[:,int(X_LENGTH/2 - X_OFFSET)])
 	# plt.show()
 
-	truthArray = np.zeros_like(scanArray)
-	truthArray[13,:] = np.ones(Y_LENGTH)
-
-	# plt.imshow(truthArray)
-	# plt.show()
-	return (scanArray,truthArray)
+	return (scanArray,getTruthArray(file))
 
 def getTruthArray(file):
 	grid_size = 20
@@ -137,8 +134,20 @@ def getTruthArray(file):
 
 			print('plotting',item['material'],'from',start,'to',end)
 			array = processGroundTruth(line,array,radius,value)
-
+			array = np.delete(array, (0), axis=0)
 	return array
+
+def getFiles(path):
+	all_files = glob.glob(path)
+
+	scans = []
+	for file in all_files:
+		if "desc" not in file:
+			filename, file_extension = os.path.splitext(file)
+			scans.append(filename)
+
+	return scans
+
 if __name__ == "__main__":
 
 
@@ -147,18 +156,15 @@ if __name__ == "__main__":
 		# value = 1
 		# radius = 1
 		# array = processGroundTruth(line,array,radius,value)
+	path ="../results/*.json"
+	files = getFiles(path)
 
+	for file in files:
 
-	file = '../results/30_01&14,29'
-	# "truth": [{"material": "wood", "start": "(5,40)", "end": "(25,20)"}]}
-	array = getTruthArray(file)
-	plt.figure(1)
-	plt.imshow(array)
-
-
-	with open(file + '.json') as f:
-		data = json.load(f)
-		scanArray,truthArray = processJSON(data)
-		plt.figure(2)
+		print('looking at',file)
+		scanArray,truthArray = processJSON(file)
+		plt.figure(1)
 		plt.imshow(scanArray)
+		plt.figure(2)
+		plt.imshow(truthArray)
 		plt.show()
