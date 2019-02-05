@@ -142,7 +142,7 @@ def InWallApp(filename):
     for xpos, ypos in coords:
         print('setting xytable to ',xpos,' ',ypos)
         XYtable.set_position(xpos,ypos)
-        time.sleep(0.1)
+        time.sleep(1)
         print('getting signal from walabot')
         WalabotAPI.Trigger()
         print('received signal from walabot')
@@ -172,7 +172,8 @@ def InWallApp(filename):
         scanList.append(scan)
 
     result['scan'] = scanList
-
+    with open(filename, 'w+') as f:
+        json.dump({}, f)
     with open(filename, 'w') as f:
         json.dump(result, f)
     desc = filename.replace('.json', '_desc.json')
@@ -191,7 +192,6 @@ if __name__ == '__main__':
     filename = time.strftime('%d_%m&%H,%M')
 
     filename = './results/' + filename+'.json'
-    with open(filename, 'w+') as f:
-        json.dump({}, f)
+
 
     InWallApp(filename)

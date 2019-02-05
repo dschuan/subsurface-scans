@@ -46,12 +46,22 @@ MATERIALS = {
 	# }
 
 }
-def findMin(amplitude):
-	db = lambda x: -10 * np.log10(abs(x))
-	convertDb = np.vectorize(db)
-	amp_arr = np.asarray(amplitude)
-	amp_arr = convertDb(amp_arr)
-	return np.amin(amp_arr)
+def split(a, n):
+    k, m = divmod(len(a), n)
+    return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+
+
+def findMin(amplitude,num_sample_layers):
+
+	splits = list(split(amplitude, num_sample_layers))
+
+	splits = [min(split) for split in splits]
+	# db = lambda x: -10 * np.log10(abs(x))
+	# convertDb = np.vectorize(db)
+	# amp_arr = np.asarray(amplitude)
+	# amp_arr = convertDb(amp_arr)
+	# np.amin(amp_arr)
+	return splits
 
 def processGroundTruth(point_pairs,array,radius,value):
 
@@ -76,7 +86,7 @@ def processGroundTruth(point_pairs,array,radius,value):
 
 
 
-def processJSON(file):
+def processJSON(file,num_sample_layers):
 	with open(file + '.json') as f:
 		data = json.load(f)
 	results = data['scan']
@@ -99,7 +109,7 @@ def processJSON(file):
 
 	print( " X_LENGTH ",X_LENGTH," Y_LENGTH ",Y_LENGTH," Y_OFFSET ",Y_OFFSET," X_OFFSET ",X_OFFSET)
 
-	scanArray = np.zeros(shape=(X_LENGTH,Y_LENGTH))
+	scanArray = np.zeros(shape=(X_LENGTH,Y_LENGTH,num_sample_layers))
 	for result in results:
 		coord = make_tuple(result['coord'])
 		coord = (int(coord[0]-X_OFFSET),int(coord[1]-Y_OFFSET))
@@ -107,7 +117,9 @@ def processJSON(file):
 		body = result['body']
 		amp = body[0]['amplitude']
 		# print(coord, findMin(amp))
-		scanArray[coord[0]][coord[1]] = findMin(amp)
+		samples = findMin(amp,num_sample_layers)
+		for index,item in enumerate(samples):
+			scanArray[coord[0]][coord[1]][index] = item
 
 	scanArray = np.delete(scanArray, (0), axis=0)
 	##cross section
@@ -153,21 +165,36 @@ def getFiles(path):
 if __name__ == "__main__":
 	path ="../results/31*.json"
 	files = getFiles(path)
-
+	num_sample_layers = 5
 	for file in files:
 
 		print('looking at',file)
-		scanArray,truthArray = processJSON(file)
+		scanArray,truthArray = processJSON(file,num_sample_layers)
 		print(truthArray.shape)
 		print(scanArray.shape)
+
+
+
+
+
+#
+# 		fig, axs = plt.subplots(2, 1, constrained_layout=True)
+# axs[0].plot(t1, f(t1), 'o', t2, f(t2), '-')
+# axs[0].set_title('subplot 1')
+# axs[0].set_xlabel('distance (m)')
+# axs[0].set_ylabel('Damped oscillation')
+# fig.suptitle('This is a somewhat long figure title', fontsize=16)
+#
+# axs[1].plot(t3, np.cos(2*np.pi*t3), '--')
+# axs[1].set_xlabel('time (s)')
+# axs[1].set_title('subplot 2')
+# axs[1].set_ylabel('Undamped')
 
 		plt.figure(1)
 		axes = plt.gca()
 		axes.set_xlim([0,20])
 		axes.set_ylim([0,19])
 		plt.imshow(scanArray)
-
-
 
 		figure = plt.figure(2)
 
@@ -189,4 +216,7 @@ if __name__ == "__main__":
 		axes.set_ylim([0,19])
 
 		plt.imshow(truthArray)
+
+
+
 		plt.show()

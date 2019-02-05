@@ -4,3 +4,9 @@ Include/
 share/
 share/doc/networkx-2.2
 results/
+otherresults/
+ml/old_logs
+ml/logs
+ml/model
+ml/np_save
+ml/agglogs
