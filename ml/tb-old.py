@@ -23,7 +23,7 @@ OUTPUT_CHANNELS = 4
 
 #ml variables
 learning_rate = 0.005
-epochs = 100
+epochs = 3000
 batch_size = 1
 
 # raw json processing variables
@@ -269,17 +269,18 @@ def run(filter_size,layerlist,keep,use_saved_model,reload,exp_name):
 				for start, end in zip(range(0, trainX.shape[0], batch_size), range(batch_size, trainX.shape[0], batch_size)):
 					sess.run(train_step,feed_dict={x: trainX[start:end], y_: trainY[start:end], keep_prob :keep})
 
-				if e%10 == 0:
+				if e%50 == 0:
 					loss_ = loss.eval({x: trainX, y_: trainY, keep_prob : 1.0})
+					test_loss_ = loss.eval({x: testX, y_: testY, keep_prob : 1.0})
 					summary = sess.run(merged, feed_dict={x: trainX, y_: trainY, keep_prob : 1.0})
 					train_writer.add_summary(summary, e)
 					summary = sess.run(merged, feed_dict={x: testX, y_: testY, keep_prob : 1.0})
 					test_writer.add_summary(summary, e)
 
-					print('epoch', e, 'entropy', loss_)
+					print('epoch', e, 'loss', loss_,'test_less',test_loss_)
 
-			#save_path = saver.save(sess, modelpath)
-			#print("Model saved in path: %s" % save_path)
+			save_path = saver.save(sess, modelpath)
+			print("Model saved in path: %s" % save_path)
 
 	else:
 		with tf.Session() as sess:
@@ -295,7 +296,7 @@ def run(filter_size,layerlist,keep,use_saved_model,reload,exp_name):
 
 				figure = plt.figure(1)
 				figure.suptitle('prediction')
-				x,y,z = np.reshape(pred,(IMG_SIZE_X,IMG_SIZE_Y,OUTPUT_CHANNELS)).nonzero()
+				x,y,z = np.nonzero(np.reshape(pred,(IMG_SIZE_X,IMG_SIZE_Y,OUTPUT_CHANNELS)) > 0.5)
 				ax = figure.add_subplot(111, projection='3d')
 				axes = plt.gca()
 				axes.set_xlim([0,20])
@@ -348,29 +349,17 @@ def generate_layers(layer_space,num_layers,NUM_CHANNELS,OUTPUT_CHANNELS):
 
 if __name__ == '__main__':
 	reload = False
-	use_saved_model = False
+	use_saved_model = True
 	filter_size = 8
 	layerlist = [NUM_CHANNELS,30,5,OUTPUT_CHANNELS]
 
-	exp_name = str(NUM_CHANNELS) + 'channel_nolog_grid_norm_drop1_runstest'
+	exp_name = str(NUM_CHANNELS) + 'channel_nolog_grid_norm_drop1_singletrial'
 
-	for i in range(10):
-		filter_size = 3
-		layerlist = [NUM_CHANNELS,5,10,30,OUTPUT_CHANNELS]
-		keep = 0.9
-		run(filter_size,layerlist,keep,use_saved_model,reload,exp_name)
 
-	for i in range(10):
-		filter_size = 3
-		layerlist = [NUM_CHANNELS,10,15,15,OUTPUT_CHANNELS]
-		keep = 0.7
-		run(filter_size,layerlist,keep,use_saved_model,reload,exp_name)
-
-	for i in range(10):
-		filter_size = 3
-		layerlist = [NUM_CHANNELS,10,15,15,30,OUTPUT_CHANNELS]
-		keep = 0.7
-		run(filter_size,layerlist,keep,use_saved_model,reload,exp_name)
+	filter_size = 3
+	layerlist = [NUM_CHANNELS,10,15,15,30,OUTPUT_CHANNELS]
+	keep = 0.7
+	run(filter_size,layerlist,keep,use_saved_model,reload,exp_name)
 
 	# layer_space = [5,10,20,30]
 	# num_layers = 4

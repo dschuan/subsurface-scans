@@ -18,14 +18,14 @@ MATERIALS = {
 
 	'wood' : {
 		'size' : 2,
-		'shape' : 'cylinder',
+		'shape' : 'rectangular',
 		'layer' : 'bottom',
 		'value': 2
 	},
 
 	'metal' : {
 		'size' : 1.3,
-		'shape' : 'rectangular',
+		'shape' : 'cylinder',
 		'layer' : 'bottom',
 		'value': 3
 	},
@@ -54,18 +54,18 @@ def split(a, n):
 def findMin(amplitude,num_sample_layers):
 
 	splits = list(split(amplitude, num_sample_layers))
+	db = lambda x: 10 * np.log10(abs(x) + 1)
+	splits = [db(max(split)) for split in splits]
 
-	splits = [min(split) for split in splits]
-	# db = lambda x: -10 * np.log10(abs(x))
+
 	# convertDb = np.vectorize(db)
 	# amp_arr = np.asarray(amplitude)
 	# amp_arr = convertDb(amp_arr)
 	# np.amin(amp_arr)
+
 	return splits
 
 def processGroundTruth(point_pairs,array,radius,value):
-
-
 
 	for point_pair in point_pairs:
 		line_point1,line_point2 = point_pair
@@ -107,7 +107,7 @@ def processJSON(file,num_sample_layers):
 	Y_OFFSET =  min(y_val)
 	X_OFFSET =  min(x_val)
 
-	print( " X_LENGTH ",X_LENGTH," Y_LENGTH ",Y_LENGTH," Y_OFFSET ",Y_OFFSET," X_OFFSET ",X_OFFSET)
+	#print( " X_LENGTH ",X_LENGTH," Y_LENGTH ",Y_LENGTH," Y_OFFSET ",Y_OFFSET," X_OFFSET ",X_OFFSET)
 
 	scanArray = np.zeros(shape=(X_LENGTH,Y_LENGTH,num_sample_layers))
 	for result in results:
@@ -146,7 +146,7 @@ def getTruthArray(file):
 			radius = MATERIALS[item['material']]['size']
 			value = MATERIALS[item['material']]['value']
 
-			print('plotting',item['material'],'from',start,'to',end)
+			#print('plotting',item['material'],'from',start,'to',end)
 			array = processGroundTruth(line,array,radius,value)
 		array = np.delete(array, (0), axis=0)
 	return array
@@ -170,8 +170,30 @@ if __name__ == "__main__":
 
 		print('looking at',file)
 		scanArray,truthArray = processJSON(file,num_sample_layers)
-		print(truthArray.shape)
-		print(scanArray.shape)
+
+		print('scan shape',scanArray.shape)
+
+		for layer in range(num_sample_layers):
+			print('layer',layer)
+			slice = scanArray[:,:,layer]
+			print('max',np.amax(slice))
+			print('min',np.amin(slice))
+
+
+		v_min = scanArray.min(axis=(0, 1), keepdims=True)
+		v_max = scanArray.max(axis=(0, 1), keepdims=True)
+		scanArray = (scanArray - v_min)/(v_max - v_min)
+
+		print('normalising')
+		for layer in range(num_sample_layers):
+			print('layer',layer)
+			slice = scanArray[:,:,layer]
+			print('max',np.amax(slice))
+			print('min',np.amin(slice))
+
+
+
+		break
 
 
 
@@ -190,33 +212,33 @@ if __name__ == "__main__":
 # axs[1].set_title('subplot 2')
 # axs[1].set_ylabel('Undamped')
 
-		plt.figure(1)
-		axes = plt.gca()
-		axes.set_xlim([0,20])
-		axes.set_ylim([0,19])
-		plt.imshow(scanArray)
-
-		figure = plt.figure(2)
-
-		x,y,z = truthArray.nonzero()
-		ax = figure.add_subplot(111, projection='3d')
-
-		axes = plt.gca()
-		axes.set_xlim([0,20])
-		axes.set_ylim([0,19])
-		axes.set_zlim([0,NUM_MATERIALS-1])
-
-		ax.scatter(x, y, z)
-
-		plt.figure(3)
-		truthArray = truthArray.sum(axis=(2))
-
-		axes = plt.gca()
-		axes.set_xlim([0,20])
-		axes.set_ylim([0,19])
-
-		plt.imshow(truthArray)
-
-
-
-		plt.show()
+		# plt.figure(1)
+		# axes = plt.gca()
+		# axes.set_xlim([0,20])
+		# axes.set_ylim([0,19])
+		# plt.imshow(scanArray)
+		#
+		# figure = plt.figure(2)
+		#
+		# x,y,z = truthArray.nonzero()
+		# ax = figure.add_subplot(111, projection='3d')
+		#
+		# axes = plt.gca()
+		# axes.set_xlim([0,20])
+		# axes.set_ylim([0,19])
+		# axes.set_zlim([0,NUM_MATERIALS-1])
+		#
+		# ax.scatter(x, y, z)
+		#
+		# plt.figure(3)
+		# truthArray = truthArray.sum(axis=(2))
+		#
+		# axes = plt.gca()
+		# axes.set_xlim([0,20])
+		# axes.set_ylim([0,19])
+		#
+		# plt.imshow(truthArray)
+		#
+		#
+		#
+		# plt.show()

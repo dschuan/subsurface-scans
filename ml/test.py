@@ -4,8 +4,20 @@ import argparse
 import os
 import shutil
 import tensorboard
-print(tensorboard.__file__)
+import numpy as np
 
+num_sample_layers = 3
+trainX = np.random.rand(32, 32, 3)
+v_min = trainX.min(axis=(0, 1), keepdims=True)
+v_max = trainX.max(axis=(0, 1), keepdims=True)
+trainX = (trainX - v_min)/(v_max - v_min)
+
+
+for layer in range(num_sample_layers):
+    print('layer',layer)
+    slice = trainX[:,:,layer]
+    print('max',np.amax(slice))
+    print('min',np.amin(slice))
 
 
 #
@@ -37,37 +49,37 @@ print(tensorboard.__file__)
 
 
 
-def move_files(abs_dirname):
-    """Move files into subdirectories."""
-
-    files = [os.path.join(abs_dirname, f) for f in os.listdir(abs_dirname)]
-
-
-
-    for f in files:
-        print('looking at folder',f)
-
-        subfolders = [f+'/train',f+'/test']
-
-        for subfolder in subfolders:
-            print('looking type',subfolder)
-            experiments = [os.path.join(subfolder, x) for x in os.listdir(subfolder)]
-
-            i = 0
-            for experiment in experiments:
-                print('looking experiment',experiment)
-                # create new subdir if necessary
-
-                subdir_name = subfolder + str(i)
-                print('make dir',subdir_name)
-                os.mkdir(subdir_name)
-
-                # move file to current dir
-                f_base = os.path.basename(experiment)
-                print('moving file',f_base)
-                print('to',os.path.join(subdir_name, f_base))
-                shutil.move(experiment, os.path.join(subdir_name, f_base))
-
-                i += 1
+# def move_files(abs_dirname):
+#     """Move files into subdirectories."""
+#
+#     files = [os.path.join(abs_dirname, f) for f in os.listdir(abs_dirname)]
+#
+#
+#
+#     for f in files:
+#         print('looking at folder',f)
+#
+#         subfolders = [f+'/train',f+'/test']
+#
+#         for subfolder in subfolders:
+#             print('looking type',subfolder)
+#             experiments = [os.path.join(subfolder, x) for x in os.listdir(subfolder)]
+#
+#             i = 0
+#             for experiment in experiments:
+#                 print('looking experiment',experiment)
+#                 # create new subdir if necessary
+#
+#                 subdir_name = subfolder + str(i)
+#                 print('make dir',subdir_name)
+#                 os.mkdir(subdir_name)
+#
+#                 # move file to current dir
+#                 f_base = os.path.basename(experiment)
+#                 print('moving file',f_base)
+#                 print('to',os.path.join(subdir_name, f_base))
+#                 shutil.move(experiment, os.path.join(subdir_name, f_base))
+#
+#                 i += 1
 
 # move_files(os.path.abspath('./logs/1channelgrid_norm_drop1'))
