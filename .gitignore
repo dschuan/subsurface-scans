@@ -10,3 +10,5 @@ ml/logs
 ml/model
 ml/np_save
 ml/agglogs
+new_res/
+ml/matlab

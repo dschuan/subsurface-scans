@@ -46,6 +46,11 @@ MATERIALS = {
 	# }
 
 }
+
+SCAN_ATTRIBUTES = {
+	'num_points': 4096
+}
+
 def split(a, n):
     k, m = divmod(len(a), n)
     return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
@@ -71,7 +76,6 @@ def processGroundTruth(point_pairs,array,radius,value):
 		line_point1,line_point2 = point_pair
 		line_point1 = np.asarray(line_point1)
 		line_point2 = np.asarray(line_point2)
-
 		for x in range(0, array.shape[0]):
 			for y in range(0,  array.shape[1]):
 				point = np.asarray((x,y))
@@ -84,6 +88,41 @@ def processGroundTruth(point_pairs,array,radius,value):
 	return array
 
 
+
+def loadIntoArray(file):
+	with open(file + '.json') as f:
+		data = json.load(f)
+
+	results = data['scan']
+	y_val = []
+	x_val = []
+	for result in results:
+		coord = make_tuple(result['coord'])
+		coord = (int(coord[0]),int(coord[1]))
+		y_val.append(coord[1])
+		x_val.append(coord[0])
+
+
+	X_LENGTH = max(x_val) - min(x_val) + 1
+	Y_LENGTH = max(y_val) - min(y_val) + 1
+	Y_OFFSET =  min(y_val)
+	X_OFFSET =  min(x_val)
+
+	#print( " X_LENGTH ",X_LENGTH," Y_LENGTH ",Y_LENGTH," Y_OFFSET ",Y_OFFSET," X_OFFSET ",X_OFFSET)
+	scanArray = np.zeros(shape=(X_LENGTH,Y_LENGTH,SCAN_ATTRIBUTES['num_points']))
+	for result in results:
+		coord = make_tuple(result['coord'])
+		coord = (int(coord[0]-X_OFFSET),int(coord[1]-Y_OFFSET))
+
+		body = result['body']
+		amp = body[0]['amplitude']
+		for index,item in enumerate(amp):
+			scanArray[coord[0]][coord[1]][index] = item
+
+	#first row has anomalous data
+	scanArray = np.delete(scanArray, (0), axis=0)
+
+	return scanArray
 
 
 def processJSON(file,num_sample_layers):

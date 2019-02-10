@@ -18,7 +18,7 @@ end
 % filt = [zeros(1,144) ones(1,length(A(:,1))-144)];
 % A_filt = A.*(filt.'*ones(1,Nm));
 Aabs=abs(A); Amax=max(max(Aabs)); AdB=20*log10(Aabs/Amax);
-T1ns=T(:,1)*1e9; % time in ns
+T1ns=T(:,1)*1e9; % time in nsdep
 Amax_2D = reshape(max(abs(A)),21,21);
 figure
 imagesc(20*log10(Amax_2D./max(max(Amax_2D)))); 
