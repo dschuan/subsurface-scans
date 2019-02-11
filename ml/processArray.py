@@ -83,7 +83,7 @@ def back_projection(complex_clean_signal,reload = False):
 
     x_range = np.arange(0.0, 0.2, resolution)
     y_range = np.arange(0.0, 0.21, resolution)
-    z_range = np.arange(-0.4, 0, resolution)
+    z_range = np.arange(0.0, 0.4, resolution)
 
     distance_r_to_t = 0.02
     x_radar_range = np.arange(0.0,0.2,resolution)
@@ -92,6 +92,7 @@ def back_projection(complex_clean_signal,reload = False):
     image = np.zeros((len(x_range),len(y_range),len(z_range)))
 
     save_dest = './np_save/backproj_image'
+    first = True
     if reload:
         for index,x_pos in enumerate(x_range):
             print('backprojection loading',index/len(x_range))
@@ -106,8 +107,12 @@ def back_projection(complex_clean_signal,reload = False):
                             distance = np.linalg.norm(radarT-point) + np.linalg.norm(radarR-point)
                             distance = distance/2
                             scan_index = int(distance/delta_distance)
-                            contribution = complex_clean_signal[int(x_radar_pos*100)][int(y_radar_pos*100)][scan_index]
+                            contribution = complex_clean_signal[int(x_radar_pos*100)][int(y_radar_pos*100)][scan_index+offset]
                             accumulator += contribution
+                    if first:
+                        print('accumulator',accumulator)
+                        print('abs accumulator',abs(accumulator))
+                        first = False
                     image[int(x_pos*100)][int(y_pos*100)][int(z_pos*100)] = abs(accumulator)
         np.save(save_dest, image)
 
@@ -121,6 +126,7 @@ def back_projection(complex_clean_signal,reload = False):
     image_max = image.max( keepdims=True)
 
     norm_image = (image - image_min)/(image_max-image_min)
+
 
     x,y,z = (norm_image>0.6).nonzero()
 
@@ -153,5 +159,5 @@ if __name__ == "__main__":
     background = processBackground()
     original = loadIntoArray('../otherresults/07_02Aluminum')
     cleaned_signal = cleanTarget(original,background)
-    complex_clean_signal = convert_to_complex(cleaned_signal,plot = False)
-    back_projection(complex_clean_signal,reload = False)
+    complex_clean_signal = convert_to_complex(cleaned_signal,plot = True)
+    back_projection(complex_clean_signal,reload = True)
