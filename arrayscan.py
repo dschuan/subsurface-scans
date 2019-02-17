@@ -191,7 +191,7 @@ if __name__ == '__main__':
     locTime = time.localtime()
     filename = time.strftime('%d_%m&%H,%M')
 
-    filename = './results/' + filename+'.json'
+    filename = './new_res/' + filename+'.json'
 
 
     InWallApp(filename)

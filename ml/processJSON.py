@@ -7,7 +7,10 @@ from ast import literal_eval as make_tuple
 import glob
 import os
 from mpl_toolkits.mplot3d import Axes3D
+
 NUM_MATERIALS = 4
+DEPTH = 60
+PRINT_INFO = True
 MATERIALS = {
 	'pvc' : {
 		'size' : 2,
@@ -70,22 +73,44 @@ def findMin(amplitude,num_sample_layers):
 
 	return splits
 
-def processGroundTruth(point_pairs,array,radius,value):
+def processGroundTruth(array,point_pairs,radius,value,threedim = False):
 
-	for point_pair in point_pairs:
-		line_point1,line_point2 = point_pair
-		line_point1 = np.asarray(line_point1)
-		line_point2 = np.asarray(line_point2)
-		for x in range(0, array.shape[0]):
-			for y in range(0,  array.shape[1]):
-				point = np.asarray((x,y))
+	object_distance = 14
 
-				dist = np.abs(np.cross(line_point2-line_point1, line_point1-point)) / np.linalg.norm(line_point2-line_point1)
+	if threedim:
 
-				if dist < radius:
-					array[x][y][value-1] = 1
+		for point_pair in point_pairs:
+			line_point1,line_point2 = point_pair
+			line_point1 = np.asarray(line_point1)
+			line_point2 = np.asarray(line_point2)
+			for x in range(0, array.shape[1]):
+				for y in range(0,  array.shape[2]):
+					point = np.asarray((x,y))
 
-	return array
+					dist = np.abs(np.cross(line_point2-line_point1, line_point1-point)) / np.linalg.norm(line_point2-line_point1)
+
+					if dist < radius:
+						array[object_distance-1][x][y] = 1
+		if PRINT_INFO:
+			print('processGroundTruth truthshape',array.shape)
+		return array
+
+	else:
+
+		for point_pair in point_pairs:
+			line_point1,line_point2 = point_pair
+			line_point1 = np.asarray(line_point1)
+			line_point2 = np.asarray(line_point2)
+			for x in range(0, array.shape[0]):
+				for y in range(0,  array.shape[1]):
+					point = np.asarray((x,y))
+
+					dist = np.abs(np.cross(line_point2-line_point1, line_point1-point)) / np.linalg.norm(line_point2-line_point1)
+
+					if dist < radius:
+						array[x][y][value-1] = 1
+
+		return array
 
 
 
@@ -125,7 +150,11 @@ def loadIntoArray(file):
 	return scanArray
 
 
-def processJSON(file,num_sample_layers):
+def processJSON(file,num_sample_layers = -1 ):
+
+
+	#print( " X_LENGTH ",X_LENGTH," Y_LENGTH ",Y_LENGTH," Y_OFFSET ",Y_OFFSET," X_OFFSET ",X_OFFSET)
+
 	with open(file + '.json') as f:
 		data = json.load(f)
 	results = data['scan']
@@ -146,8 +175,6 @@ def processJSON(file,num_sample_layers):
 	Y_OFFSET =  min(y_val)
 	X_OFFSET =  min(x_val)
 
-	#print( " X_LENGTH ",X_LENGTH," Y_LENGTH ",Y_LENGTH," Y_OFFSET ",Y_OFFSET," X_OFFSET ",X_OFFSET)
-
 	scanArray = np.zeros(shape=(X_LENGTH,Y_LENGTH,num_sample_layers))
 	for result in results:
 		coord = make_tuple(result['coord'])
@@ -167,9 +194,17 @@ def processJSON(file,num_sample_layers):
 
 	return (scanArray,getTruthArray(file))
 
-def getTruthArray(file):
+def getTruthArray(file,threedim = False):
 	grid_size = 21
-	array = np.zeros((grid_size,grid_size,NUM_MATERIALS))
+	if threedim:
+		if PRINT_INFO:
+			print("using threedim truth")
+		array = np.zeros((DEPTH,grid_size,grid_size))
+	else:
+		if PRINT_INFO:
+			print("using numchannels truth")
+		array = np.zeros((grid_size,grid_size,NUM_MATERIALS))
+
 	with open(file + '_desc.json') as f:
 		data = json.load(f)
 
@@ -186,8 +221,10 @@ def getTruthArray(file):
 			value = MATERIALS[item['material']]['value']
 
 			#print('plotting',item['material'],'from',start,'to',end)
-			array = processGroundTruth(line,array,radius,value)
-		array = np.delete(array, (0), axis=0)
+			array = processGroundTruth(array,line,radius,value,threedim)
+			if PRINT_INFO:
+				print('getTruthArray truthshape',array.shape)
+		array = np.delete(array, (0), axis=1)
 	return array
 
 def getFiles(path):
@@ -201,83 +238,10 @@ def getFiles(path):
 
 	return scans
 
+
+
 if __name__ == "__main__":
-	path ="../results/31*.json"
-	files = getFiles(path)
-	num_sample_layers = 5
-	for file in files:
-
-		print('looking at',file)
-		scanArray,truthArray = processJSON(file,num_sample_layers)
-
-		print('scan shape',scanArray.shape)
-
-		for layer in range(num_sample_layers):
-			print('layer',layer)
-			slice = scanArray[:,:,layer]
-			print('max',np.amax(slice))
-			print('min',np.amin(slice))
-
-
-		v_min = scanArray.min(axis=(0, 1), keepdims=True)
-		v_max = scanArray.max(axis=(0, 1), keepdims=True)
-		scanArray = (scanArray - v_min)/(v_max - v_min)
-
-		print('normalising')
-		for layer in range(num_sample_layers):
-			print('layer',layer)
-			slice = scanArray[:,:,layer]
-			print('max',np.amax(slice))
-			print('min',np.amin(slice))
 
 
 
-		break
-
-
-
-
-
-#
-# 		fig, axs = plt.subplots(2, 1, constrained_layout=True)
-# axs[0].plot(t1, f(t1), 'o', t2, f(t2), '-')
-# axs[0].set_title('subplot 1')
-# axs[0].set_xlabel('distance (m)')
-# axs[0].set_ylabel('Damped oscillation')
-# fig.suptitle('This is a somewhat long figure title', fontsize=16)
-#
-# axs[1].plot(t3, np.cos(2*np.pi*t3), '--')
-# axs[1].set_xlabel('time (s)')
-# axs[1].set_title('subplot 2')
-# axs[1].set_ylabel('Undamped')
-
-		# plt.figure(1)
-		# axes = plt.gca()
-		# axes.set_xlim([0,20])
-		# axes.set_ylim([0,19])
-		# plt.imshow(scanArray)
-		#
-		# figure = plt.figure(2)
-		#
-		# x,y,z = truthArray.nonzero()
-		# ax = figure.add_subplot(111, projection='3d')
-		#
-		# axes = plt.gca()
-		# axes.set_xlim([0,20])
-		# axes.set_ylim([0,19])
-		# axes.set_zlim([0,NUM_MATERIALS-1])
-		#
-		# ax.scatter(x, y, z)
-		#
-		# plt.figure(3)
-		# truthArray = truthArray.sum(axis=(2))
-		#
-		# axes = plt.gca()
-		# axes.set_xlim([0,20])
-		# axes.set_ylim([0,19])
-		#
-		# plt.imshow(truthArray)
-		#
-		#
-		#
-		# plt.show()
+	print('test')

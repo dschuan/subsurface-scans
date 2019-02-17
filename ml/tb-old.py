@@ -185,7 +185,7 @@ def run(filter_size,layerlist,keep,use_saved_model,reload,exp_name):
 	tf.reset_default_graph()
 
 	#load files
-	path ="../results/*.json"
+	path ="../new_res/*.json"
 	files = getFiles(path)
 
 	trainX_file = './np_save/trainX'
@@ -350,10 +350,9 @@ def generate_layers(layer_space,num_layers,NUM_CHANNELS,OUTPUT_CHANNELS):
 if __name__ == '__main__':
 	reload = False
 	use_saved_model = True
-	filter_size = 8
-	layerlist = [NUM_CHANNELS,30,5,OUTPUT_CHANNELS]
 
-	exp_name = str(NUM_CHANNELS) + 'channel_nolog_grid_norm_drop1_singletrial'
+
+	exp_name = str(NUM_CHANNELS) + 'channel_nolog_grid_norm_drop1_new_res'
 
 
 	filter_size = 3

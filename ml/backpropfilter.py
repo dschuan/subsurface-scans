@@ -8,30 +8,32 @@ import json
 import glob
 import os
 from mpl_toolkits.mplot3d import Axes3D
-from processJSON import processJSON
+from processArray import processArray
 from datetime import datetime
 import itertools
 import copy
 import time
+from filters import create_filter
 
 
 
 #size of input
 IMG_SIZE_X = 20
 IMG_SIZE_Y = 21
-NUM_CHANNELS = 5
-OUTPUT_CHANNELS = 4
+IMG_SIZE_Z = 60
+NUM_CHANNELS = 1
+OUTPUT_CHANNELS = 1
 
 #ml variables
 learning_rate = 0.01
-epochs = 20000
+epochs = 2000
 batch_size = 1
 
 # raw json processing variables
 # SAMPLE_SIZE = 1000
 SAMPLE_KEEP_PROB = 1
 
-PRINT_INFO = False
+PRINT_INFO = True
 
 seed = int(time.time())
 np.random.seed(seed)
@@ -41,7 +43,7 @@ def load_data(files):
 	X = []
 	Y = []
 	for file in files:
-		scanArray,truthArray = processJSON(file,NUM_CHANNELS)
+		scanArray,truthArray = processArray(file)
 		print('looking at',file,'truthArray.shape',truthArray.shape)
 		X.append(scanArray)
 		Y.append(truthArray)
@@ -102,16 +104,16 @@ def variable_summaries(var):
 		tf.summary.histogram('histogram', var)
 
 
-def oneFilter(input,num_input_layers,num_output_layers,filter_size,name,keep_prob,apply_dropout):
+def oneFilter(input,num_input_layers,num_output_layers,filter_height,filter_size,name,keep_prob,apply_dropout):
 
-	images = tf.reshape(input, [-1, IMG_SIZE_X, IMG_SIZE_Y, num_input_layers])
+	images = tf.reshape(input, [-1, IMG_SIZE_Z, IMG_SIZE_X, IMG_SIZE_Y, num_input_layers])
 
 
 	with tf.variable_scope('conv' + name) as scope:
 		#Conv 1
 		with tf.name_scope('weights'):
 			# ini w 1.0/np.sqrt(num_input_layers*filter_size*filter_size) previously
-			W1 = tf.Variable(tf.truncated_normal([filter_size, filter_size, num_input_layers, num_output_layers], stddev=0.15), name='weights_' + name)
+			W1 = tf.Variable(tf.ones([filter_height, filter_size, filter_size, num_input_layers, num_output_layers]), name='weights_' + name)
 			#variable_summaries(W1)
 
 
@@ -149,6 +151,50 @@ def oneFilter(input,num_input_layers,num_output_layers,filter_size,name,keep_pro
 
 	return pool_1_flat
 
+
+def backPropFilter(input,num_input_layers,num_output_layers,filter_depth,filter_size,name,keep_prob,apply_dropout):
+
+	images = tf.reshape(input, [-1, IMG_SIZE_Z, IMG_SIZE_X, IMG_SIZE_Y, num_input_layers])
+
+
+	with tf.variable_scope('conv' + name) as scope:
+		with tf.name_scope('weights'):
+			W1 = tf.Variable(tf.ones([filter_depth, filter_size, filter_size, num_input_layers, num_output_layers]), name='weights_' + name)
+			#variable_summaries(W1)
+		mask = create_filter(filter_z_len = filter_depth,filter_x_len = filter_size,filter_y_len = filter_size,distance_to_top = 14,visualise = False)
+		mask = mask.reshape( [filter_depth,filter_size,filter_size,num_input_layers,num_output_layers] )
+		mask_variable = tf.Variable( mask , dtype=tf.float32 )
+		mask = tf.stop_gradient( mask_variable )
+
+
+
+		with tf.name_scope('biases'):
+			b1 = tf.Variable(tf.zeros([num_output_layers]), name='biases_' + name)
+			#variable_summaries(b1)
+
+		with tf.name_scope('output'):
+			# With the default format "NDHWC", the data is stored in the order of: [batch, in_depth, in_height, in_width, in_channels]
+			conv_1 = tf.nn.relu(tf.nn.conv3d(images, W1*mask, [1, 1, 1, 1,1], padding='SAME') + b1)
+			if apply_dropout:
+				conv_1 = tf.nn.dropout(conv_1, keep_prob)
+
+			# tf.summary.image('conv_1',conv_1)
+
+		dim_1 = conv_1.get_shape()[1].value * conv_1.get_shape()[2].value * conv_1.get_shape()[3].value
+		pool_1_flat = tf.reshape(conv_1, [-1, dim_1])
+
+
+		if(PRINT_INFO):
+			print('convolution layer',name)
+			print('filter input shape',input.shape)
+			print('reshaping to',images.shape)
+			print("shape of filters",W1.get_shape())
+			print('shape of mask',mask.get_shape())
+			print("shape of output",conv_1.get_shape())
+			print("shape of output flattened",pool_1_flat.get_shape())
+
+	return pool_1_flat
+
 def chainFilter(input, layerlist, filter_size,keep_prob):
 	layer = input
 	first_layer = True
@@ -159,7 +205,7 @@ def chainFilter(input, layerlist, filter_size,keep_prob):
 
 	return layer
 
-def loadData(reload, max_items_per_scan = 4, train_test_split = 0.7, only_max = False,saved_path = "../results/*.json"):
+def loadData(reload, max_items_per_scan = 4, train_test_split = 0.7, only_max = False,saved_path = "../new_res/*.json"):
 	#load files
 
 	trainX_file = './np_save/trainX' + str(max_items_per_scan)
@@ -225,28 +271,27 @@ def loadData(reload, max_items_per_scan = 4, train_test_split = 0.7, only_max = 
 def flatten4D(nparray):
 	return nparray.reshape(nparray.shape[0],-1)
 
-def run(trainX, testX, trainY, testY, filter_size, layerlist, keep, use_saved_model, exp_name, show_results):
+def run(trainX, testX, trainY, testY, filter_depth, filter_size, keep, use_saved_model, exp_name, show_results):
 	modelpath = "./model/testmodel.ckpt"
 	print('Using test data testX.shape',testX.shape, 'testY.shape', testY.shape)
 	if not show_results:
 		print('Using train data trainX.shape',trainX.shape,'trainY.shape',trainY.shape)
-	num_layers = len(layerlist)
+
 	now = datetime.now()
 	logdir = "./logs/" + exp_name + '/'
-	logdir = logdir + str(num_layers-1) + 'layer_'
-	logdir = logdir + str(filter_size) + 'x_'
-	logdir = logdir + str(layerlist) + 'filter_'
+	logdir = logdir + str(filter_depth) + 'x' +str(filter_size) + '_'
 	logdir = logdir + str(keep) + "keepprob/"+ now.strftime("%m%d-%H%M%S")
 	logdir = logdir + '/'
 	print('params',logdir)
 	tf.reset_default_graph()
 
 	# Create the model
-	x = tf.placeholder(tf.float32, [None, IMG_SIZE_X*IMG_SIZE_Y*NUM_CHANNELS],name='x')
-	y_ = tf.placeholder(tf.float32, [None, IMG_SIZE_X*IMG_SIZE_Y*OUTPUT_CHANNELS],name='y')
+	x = tf.placeholder(tf.float32, [None, IMG_SIZE_Z*IMG_SIZE_X*IMG_SIZE_Y*NUM_CHANNELS],name='x')
+	y_ = tf.placeholder(tf.float32, [None, IMG_SIZE_Z*IMG_SIZE_X*IMG_SIZE_Y*OUTPUT_CHANNELS],name='y')
 
 	keep_prob = tf.placeholder(tf.float32,name = 'keep_prob')
-	logits = chainFilter(x,layerlist,filter_size,keep_prob)
+	logits = backPropFilter(x,NUM_CHANNELS,OUTPUT_CHANNELS,filter_depth,filter_size,'1',keep_prob,apply_dropout = True)
+	# logits = chainFilter(x,layerlist,filter_size,keep_prob)
 
 	print("labels y_.shape",y_.shape)
 	print("logits logits.shape", logits.shape)
@@ -267,8 +312,9 @@ def run(trainX, testX, trainY, testY, filter_size, layerlist, keep, use_saved_mo
 	saver = tf.train.Saver()
 
 	if not show_results:
-
+		print('session starting')
 		with tf.Session() as sess:
+			print('session started')
 			if use_saved_model:
 				print('using saved model at',modelpath)
 				saver.restore(sess, modelpath)
@@ -431,126 +477,26 @@ def generate_layers(layer_space,num_layers,NUM_CHANNELS,OUTPUT_CHANNELS):
 
 	return output
 
-def train_stepwise(model_params,data_params,show_results = False):
-
-	test_data_params = {
-		'reload': False, #When True, parse time domain raw data again, use when data changes
-		'max_items_per_scan': 3, # maximum number of items in a scan
-		'train_test_split': 0.7, #size of training data
-		'only_max': True, #only max_items_per_scan number of items loaded, not the rest,
-		'saved_path': "../results/*.json"
-	}
-
-	working_model_params = copy.deepcopy(model_params)
-	working_data_params = copy.deepcopy(data_params)
-
-
-	_, testX, _, testY = loadData(**test_data_params)
-
-	if show_results:
-		working_model_params['show_results'] = True
-		run(_, testX, _, testY, **working_model_params)
-	else:
-		working_data_params['train_test_split'] = 1.0
-		#train a new model
-		working_model_params['use_saved_model'] = False
-		for num_items in range(3):
-			working_data_params['max_items_per_scan'] = num_items + 1
-
-			if num_items + 1 == test_data_params['max_items_per_scan']:
-				working_data_params['train_test_split'] = test_data_params['train_test_split']
-			trainX, _, trainY, _ = loadData(**working_data_params)
-
-			#TODO: pass steps to plot in one line
-			#TODO: test data to only contain 4 material scans?
-			#TODO: first one should not use save model, and how to check if it is used??
-
-			#put each iteration in new folder
-			working_model_params['exp_name'] = model_params['exp_name'] + str(num_items + 1)
-			run(trainX, testX, trainY, testY, **working_model_params)
-
-			#continue training from previous model
-			working_model_params['use_saved_model'] = True
-
-def min_test(show_results = False):
-	working_model_params = {
-		'filter_size': 3,
-		'layerlist': [NUM_CHANNELS,20,20,20,OUTPUT_CHANNELS],
-		'keep': 0.7, #dropout rate for first cnn layer
-		'use_saved_model':True, #when true, uses the previous model and continue training
-		'exp_name': str(NUM_CHANNELS) + 'channel_log_grid_norm_drop1_mintest',
-		'show_results': False #when true, uses the previously trained model and shows results of test
-	}
-
-	working_data_params = {
-
-		'reload': False, #When True, parse time domain raw data again, use when data changes
-		'max_items_per_scan': 2, # maximum number of items in a scan
-		'train_test_split': 1, #size of training data
-		'only_max': False,
-		'saved_path': "../results/*.json"
-	}
-
-	test_data_params = {
-		'reload': False, #When True, parse time domain raw data again, use when data changes
-		'max_items_per_scan': 2, # maximum number of items in a scan
-		'train_test_split': 0, #size of training data
-		'only_max': True, #only max_items_per_scan number of items loaded, not the rest,
-		'saved_path': "../results/*.json"
-	}
-
-	if show_results:
-		working_model_params['show_results'] = True
-		working_data_params['train_test_split']= 0
-		trainX, testX, trainY, testY = loadData(**test_data_params)
-
-	else:
-		trainX, _, trainY, _ = loadData(**working_data_params)
-		working_data_params['train_test_split'] = 0
-		_, testX, _, testY = loadData(**test_data_params)
-
-	run(trainX, testX, trainY, testY, **working_model_params)
-
-def predict(folderpath):
-	working_model_params = {
-		'filter_size': 3,
-		'layerlist': [NUM_CHANNELS,20,20,20,OUTPUT_CHANNELS],
-		'keep': 0.7, #dropout rate for first cnn layer
-		'use_saved_model':True, #when true, uses the previous model and continue training
-		'exp_name': str(NUM_CHANNELS) + 'channel_log_grid_norm_drop1_mintest',
-		'show_results': True #when true, uses the previously trained model and shows results of test
-	}
-
-	working_data_params = {
-
-		'reload': True, #When True, parse time domain raw data again, use when data changes
-		'max_items_per_scan': 2, # maximum number of items in a scan
-		'train_test_split': 1, #size of training data
-		'only_max': False,
-		'saved_path': folderpath + "/*.json"
-	}
-	working_model_params['show_results'] = True
-	working_data_params['train_test_split']= 0
-	trainX, testX, trainY, testY = loadData(**test_data_params)
-
-	run(trainX, testX, trainY, testY, **working_model_params)
 
 def reload_data():
 
-	for num_items in range(4):
+	for num_items in range(2):
 		loadData(reload = True, max_items_per_scan = num_items+1)
 
-	for num_items in range(4):
-		loadData(reload = True, max_items_per_scan = num_items+1, only_max = True)
+	# for num_items in range(2):
+	# 	loadData(reload = True, max_items_per_scan = num_items+1, only_max = True)
+
+
 
 if __name__ == '__main__':
 
 	model_params = {
-		'filter_size': 5,
-		'layerlist': [NUM_CHANNELS,10,20,OUTPUT_CHANNELS],
+		'filter_size': 40,
+		'filter_depth': 40,
+		# 'layerlist': [NUM_CHANNELS,10,20,OUTPUT_CHANNELS],
 		'keep': 0.7, #dropout rate for first cnn layer
 		'use_saved_model':False, #when true, uses the previous model and continue training
-		'exp_name': str(NUM_CHANNELS) + 'channel_log_grid_norm_drop1_steptrain',
+		'exp_name': 'backprop_norm_drop1',
 		'show_results': False #when true, uses the previously trained model and shows results of test,
 
 	}
@@ -558,54 +504,12 @@ if __name__ == '__main__':
 	data_params = {
 
 		'reload': False, #When True, parse time domain raw data again, use when data changes
-		'max_items_per_scan': 4, # maximum number of items in a scan
+		'max_items_per_scan': 2, # maximum number of items in a scan
 		'train_test_split': 0.7, #size of training data
 		'only_max': False,
-		'saved_path': "../results/*.json"
+		'saved_path': "../new_res/*.json"
 	}
+	trainX, testX, trainY, testY = loadData(**data_params)
+	run(trainX, testX, trainY, testY, **model_params)
 
-
-	min_test(show_results = True)
-	# train_stepwise(model_params,data_params,show_results = True)
-	#
-	# # #use when base data changes
 	# reload_data()
-
-
-
-
-
-
-
-
-
-
-
-	#
-	# trainX, testX, trainY, testY = loadData(reload = False)
-
-	# singlescan = trainX[0]
-	# print('singlescan shape',singlescan.shape)
-	# singlescan = singlescan.reshape([IMG_SIZE_X,IMG_SIZE_Y,NUM_CHANNELS])
-	# print('singlescan reshape',singlescan.shape)
-	# for layer in range(NUM_CHANNELS):
-	# 	print('layer',layer)
-	# 	slice = singlescan[:,:,layer]
-	# 	print('max',np.amax(slice))
-	# 	print('min',np.amin(slice))
-
-	# layer_space = [5,10,20,30]
-	# num_layers = 4
-	# iter_layers = generate_layers(layer_space,num_layers,NUM_CHANNELS,OUTPUT_CHANNELS)
-	#
-	# iter_keep = [1.0,0.9,0.7]
-	#
-	# iter_filter_size = [3,5,7]
-	#
-	# iteration_length = len(iter_filter_size)*len(iter_keep)*len(iter_layers)
-	# print('total iterations', iteration_length)
-	# for runs in range(5):
-	# 	for keep in iter_keep:
-	# 		for layerlist in iter_layers:
-	# 			for filter_size in iter_filter_size:
-	# 				run(filter_size,layerlist,keep,use_saved_model,reload,exp_name)
