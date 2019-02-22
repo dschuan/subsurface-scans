@@ -13,12 +13,20 @@ import math
 NUM_POINTS = 4096
 PRINT_INFO = True
 
-def processArray(file):
+def processArray(file,use_preprocessed = False):
 
 	truth = getTruthArray(file,True)
+	filename = file.split('\\')[-1]
 	if PRINT_INFO:
-		print('processJSON truthshape',truth.shape)
-	return (get_data(file),truth)
+		print('processArray truth from processJSON truthshape',truth.shape)
+		print('processArray looking at', filename)
+
+
+	if use_preprocessed:
+
+		return (np.load('./backprojraw/' + filename + '.npy'),truth)
+	else:
+		return (get_data(file),truth)
 
 
 
@@ -36,7 +44,7 @@ def processBackground(debug = False,reload = False):
 
 
 
-	if debug: print('backgrounddata.shape',backgrounddata.shape)
+	if debug: print('processArray backgrounddata.shape',backgrounddata.shape)
 
 
 
@@ -54,7 +62,7 @@ def convert_to_complex(cleaned_signal,plot = False):
 
 
 	cleaned_signal_fft = np.fft.fft(cleaned_signal)
-	print('cleaned_signal_fft shape',cleaned_signal_fft.shape)
+	print('processArray cleaned_signal_fft shape',cleaned_signal_fft.shape)
 
 	half_cleaned_signal_fft = np.copy(cleaned_signal_fft)
 	half_cleaned_signal_fft[:,:,int(NUM_POINTS/2):] = 0 + 0j
@@ -86,16 +94,16 @@ def convert_to_complex(cleaned_signal,plot = False):
 
 	return complex_clean_signal
 
-def sample_clean_signal(complex_clean_signal,offset = 71, sampling_step = 7,num_samples = 60):
+def sample_clean_signal(complex_clean_signal,offset = 71, sampling_step = 7,num_samples = 40):
 	#(20, 21, 4096)
 	sampled_signal = complex_clean_signal[:,:,offset::sampling_step].copy()
 	sampled_signal = sampled_signal[:,:,:num_samples].copy()
 
 	if PRINT_INFO:
-		print("sampled_signal shape",sampled_signal.shape)
+		print("processArray sampled_signal shape",sampled_signal.shape)
 	return sampled_signal
 
-def back_projection(complex_clean_signal,folder,name,max_plane_offset = -1,reload = False):
+def back_projection(complex_clean_signal,name,max_plane_offset = -1,reload = False,plot_images = False):
 	offset = 75
 	delta_distance = 9.765625e-12 * 3e8 / 2 # timestep * speed_light/2
 	resolution = 0.01
@@ -109,9 +117,10 @@ def back_projection(complex_clean_signal,folder,name,max_plane_offset = -1,reloa
 	y_radar_range = np.arange(0.0,0.21,resolution)
 
 	image = np.zeros((len(x_range),len(y_range),len(z_range)))
-
-	save_dest = './np_save/backproj_image' + name + str(max_plane_offset)
-	print('save_dest',save_dest)
+	filename, file_extension = os.path.splitext(name)
+	filename = filename.split('\\')[-1]
+	save_dest = './backprojraw/' + filename #+ str(max_plane_offset)
+	print('processArray backproj save_dest',save_dest)
 	first = True
 
 	if reload:
@@ -119,7 +128,8 @@ def back_projection(complex_clean_signal,folder,name,max_plane_offset = -1,reloa
 		iters = 0
 		max_point_considered = 0
 		for index,x_pos in enumerate(x_range):
-			print('backprojection loading',index/len(x_range))
+
+			print('processArray backprojection loading',index/len(x_range))
 			for y_pos in y_range:
 				for z_pos in z_range:
 					accumulator = 0
@@ -150,6 +160,8 @@ def back_projection(complex_clean_signal,folder,name,max_plane_offset = -1,reloa
 
 
 					image[int(x_pos*100)][int(y_pos*100)][int(z_pos*100)] = abs(accumulator)
+
+		print('saving at',save_dest)
 		np.save(save_dest, image)
 		print('avg_points_considered',points_considered/iters)
 		print('max_point_considered',abs(max_point_considered))
@@ -157,102 +169,111 @@ def back_projection(complex_clean_signal,folder,name,max_plane_offset = -1,reloa
 	else:
 		image =  np.load(save_dest+'.npy')
 
-	print('image shape',image.shape)
+	print('processArray backproj image shape',image.shape)
 
 	image_min = image.min( keepdims=True)
 	image_max = image.max( keepdims=True)
 
 	norm_image = (image - image_min)/(image_max-image_min)
 
+	if plot_images:
 
-	x,y,z = (norm_image>0.5).nonzero()
+		x,y,z = (norm_image>0.5).nonzero()
 
-	fig = plt.figure(1)
-	fig.suptitle('backproj 3d with filter radius' + str(max_plane_offset))
-	ax = fig.add_subplot(111, projection='3d')
-	axes = plt.gca()
-	axes.set_xlim([0,20])
-	axes.set_ylim([0,19])
-	axes.set_zlim([0,40])
+		fig = plt.figure(1)
+		fig.suptitle('backproj 3d with filter radius' + str(max_plane_offset))
+		ax = fig.add_subplot(111, projection='3d')
+		axes = plt.gca()
+		axes.set_xlim([0,20])
+		axes.set_ylim([0,19])
+		axes.set_zlim([0,40])
 
-	ax.scatter(x, y, z, zdir='z',c= 'red')
-
-
-	fig = plt.figure(2)
-	fig.suptitle('backproj slice')
-	axes = plt.gca()
-	axes.set_xlim([0,20])
-	axes.set_ylim([0,19])
-	plt.imshow(norm_image[:,:,14])
-
-	fig = plt.figure(3)
-	fig.suptitle('naive max')
-	axes = plt.gca()
-	axes.set_xlim([0,20])
-	axes.set_ylim([0,19])
-	scan_index = int(0.14/delta_distance) + offset
-	slice = complex_clean_signal[:,:,scan_index].copy()
-	print('slice shape',slice.shape)
-	plt.imshow(abs(slice))
+		ax.scatter(x, y, z, zdir='z',c= 'red')
 
 
-	trutharray = getTruthArray(folder + name)
-	fig = plt.figure(4)
-	fig.suptitle('truth')
-	axes = plt.gca()
-	axes.set_xlim([0,20])
-	axes.set_ylim([0,19])
-	plt.imshow(trutharray.sum(axis = (2)))
-	plt.show()
-	# figure = plt.figure(7)
-	# figure.suptitle('image')
-	# ax = figure.add_subplot(111, projection='3d')
-	# axes = plt.gca()
-	# x = np.arange(image.shape[0])[:, None, None]
-	# y = np.arange(image.shape[1])[None, :, None]
-	# z = np.arange(image.shape[2])[None, None, :]
-	# x, y, z = np.broadcast_arrays(x, y, z)
-	# c = np.tile(image.ravel()[:, None], [1, 3])
-	# ax.scatter(x.ravel(),
-	#    y.ravel(),
-	#    z.ravel(),
-	#    c=image.ravel(),
-	#    cmap=plt.get_cmap('Reds'))
-	plt.show()
+		fig = plt.figure(2)
+		fig.suptitle('backproj slice')
+		axes = plt.gca()
+		axes.set_xlim([0,20])
+		axes.set_ylim([0,19])
+		plt.imshow(norm_image[:,:,14])
+
+		fig = plt.figure(3)
+		fig.suptitle('naive max')
+		axes = plt.gca()
+		axes.set_xlim([0,20])
+		axes.set_ylim([0,19])
+		scan_index = int(0.14/delta_distance) + offset
+		slice = complex_clean_signal[:,:,scan_index].copy()
+		print('slice shape',slice.shape)
+		plt.imshow(abs(slice))
+
+
+		trutharray = getTruthArray( name)
+		fig = plt.figure(4)
+		fig.suptitle('truth')
+		axes = plt.gca()
+		axes.set_xlim([0,20])
+		axes.set_ylim([0,19])
+		plt.imshow(trutharray.sum(axis = (2)))
+		plt.show()
+		# figure = plt.figure(7)
+		# figure.suptitle('image')
+		# ax = figure.add_subplot(111, projection='3d')
+		# axes = plt.gca()
+		# x = np.arange(image.shape[0])[:, None, None]
+		# y = np.arange(image.shape[1])[None, :, None]
+		# z = np.arange(image.shape[2])[None, None, :]
+		# x, y, z = np.broadcast_arrays(x, y, z)
+		# c = np.tile(image.ravel()[:, None], [1, 3])
+		# ax.scatter(x.ravel(),
+		#    y.ravel(),
+		#    z.ravel(),
+		#    c=image.ravel(),
+		#    cmap=plt.get_cmap('Reds'))
+	else:
+		return norm_image
 
 
 def get_data(file):
 	background = processBackground()
 	original = loadIntoArray(file)
 	cleaned_signal = cleanTarget(original,background)
-	# complex_clean_signal = convert_to_complex(cleaned_signal,plot = False)
-	sample = sample_clean_signal(cleaned_signal)
+	complex_clean_signal = convert_to_complex(cleaned_signal,plot = False)
+	# sample = sample_clean_signal(cleaned_signal)
+	#
+	# sample_reshape = np.transpose(sample, (2, 0, 1))
 
-	sample_reshape = np.transpose(sample, (2, 0, 1))
 
-	return sample_reshape
-	# back_projection(complex_clean_signal,folder = '../new_res/',name,max_plane_offset = 16,reload = True)
-
+	backproj = back_projection(complex_clean_signal,name = file,max_plane_offset = -1,reload = True)
+	return backproj
 
 if __name__ == "__main__":
-	path ="../new_res/*.json"
+	path ="../new_res_temp/*.json"
 	files = getFiles(path)
 	i = 1
+	print(files)
 	for file in files:
-		i = i+1
-		print('looking at',file)
-		scanArray,truthArray =processArray(file)
-
-		print('truthArray shape',truthArray.shape)
-		print('scanArray shape',scanArray.shape)
-
-		figure = plt.figure(2)
-		figure.suptitle('truth')
-		z,x,y = truthArray.nonzero()
-		ax = figure.add_subplot(111, projection='3d')
-		axes = plt.gca()
-		axes.set_xlim([0,20])
-		axes.set_ylim([0,19])
-		axes.set_zlim([0,60])
-		ax.scatter(x, y, z)
-		plt.show()
+		data = get_data(file)
+		# name = './backprop/' + file.split('\\')[-1]
+		# print('saving at',name)
+		# np.save(name,data)
+	#
+	# for file in files:
+	# 	i = i+1
+	# 	print('looking at',file)
+	# 	scanArray,truthArray = processArray(file)
+	#
+	# 	print('truthArray shape',truthArray.shape)
+	# 	print('scanArray shape',scanArray.shape)
+	#
+	# 	figure = plt.figure(i)
+	# 	figure.suptitle('truth' + str(file))
+	# 	z,x,y = truthArray.nonzero()
+	# 	ax = figure.add_subplot(111, projection='3d')
+	# 	axes = plt.gca()
+	# 	axes.set_xlim([0,20])
+	# 	axes.set_ylim([0,19])
+	# 	axes.set_zlim([0,40])
+	# 	ax.scatter(x, y, z)
+	# plt.show()

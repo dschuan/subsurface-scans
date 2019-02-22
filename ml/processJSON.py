@@ -9,44 +9,36 @@ import os
 from mpl_toolkits.mplot3d import Axes3D
 
 NUM_MATERIALS = 4
-DEPTH = 60
+DEPTH = 40
 PRINT_INFO = True
 MATERIALS = {
 	'pvc' : {
 		'size' : 2,
 		'shape' : 'cylinder',
 		'layer' : 'bottom',
-		'value': 1
+		'value': 0
 	},
 
 	'wood' : {
 		'size' : 2,
 		'shape' : 'rectangular',
 		'layer' : 'bottom',
-		'value': 2
+		'value': 1
 	},
 
 	'metal' : {
 		'size' : 1.3,
 		'shape' : 'cylinder',
 		'layer' : 'bottom',
-		'value': 3
+		'value': 2
 	},
 
 	'aluminum' : {
 		'size' : 2.5,
 		'shape' : 'flat',
 		'layer' : 'top',
-		'value': 4
+		'value': 3
 	}
-	# ,
-	#
-	# 'wire' : {
-	# 	'size' : 0.7,
-	# 	'shape' : 'cylinder',
-	# 	'layer' : 'bottom',
-	# 	'value': 5
-	# }
 
 }
 
@@ -90,9 +82,9 @@ def processGroundTruth(array,point_pairs,radius,value,threedim = False):
 					dist = np.abs(np.cross(line_point2-line_point1, line_point1-point)) / np.linalg.norm(line_point2-line_point1)
 
 					if dist < radius:
-						array[object_distance-1][x][y] = 1
+						array[object_distance-1][x][y][value] = 1
 		if PRINT_INFO:
-			print('processGroundTruth truthshape',array.shape)
+			print('processJSON processGroundTruth truthshape',array.shape)
 		return array
 
 	else:
@@ -108,7 +100,7 @@ def processGroundTruth(array,point_pairs,radius,value,threedim = False):
 					dist = np.abs(np.cross(line_point2-line_point1, line_point1-point)) / np.linalg.norm(line_point2-line_point1)
 
 					if dist < radius:
-						array[x][y][value-1] = 1
+						array[x][y][value] = 1
 
 		return array
 
@@ -198,11 +190,11 @@ def getTruthArray(file,threedim = False):
 	grid_size = 21
 	if threedim:
 		if PRINT_INFO:
-			print("using threedim truth")
-		array = np.zeros((DEPTH,grid_size,grid_size))
+			print("processJSON  getTruthArray using threedim truth")
+		array = np.zeros((DEPTH,grid_size,grid_size,4))
 	else:
 		if PRINT_INFO:
-			print("using numchannels truth")
+			print("processJSON  gettrutharray using 2d numchannels truth")
 		array = np.zeros((grid_size,grid_size,NUM_MATERIALS))
 
 	with open(file + '_desc.json') as f:
@@ -219,11 +211,11 @@ def getTruthArray(file,threedim = False):
 
 			radius = MATERIALS[item['material']]['size']
 			value = MATERIALS[item['material']]['value']
-
+			print('processJSON  gettrutharray loading ',item['material'])
 			#print('plotting',item['material'],'from',start,'to',end)
 			array = processGroundTruth(array,line,radius,value,threedim)
 			if PRINT_INFO:
-				print('getTruthArray truthshape',array.shape)
+				print('processJSON getTruthArray truthshape',array.shape)
 		array = np.delete(array, (0), axis=1)
 	return array
 
