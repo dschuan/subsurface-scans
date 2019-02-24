@@ -82,7 +82,8 @@ def processGroundTruth(array,point_pairs,radius,value,threedim = False):
 					dist = np.abs(np.cross(line_point2-line_point1, line_point1-point)) / np.linalg.norm(line_point2-line_point1)
 
 					if dist < radius:
-						array[object_distance-1][x][y][value] = 1
+						array[object_distance-1][x][y][value+1] = 1
+						array[object_distance-1][x][y][0] = 0
 		if PRINT_INFO:
 			print('processJSON processGroundTruth truthshape',array.shape)
 		return array
@@ -100,7 +101,8 @@ def processGroundTruth(array,point_pairs,radius,value,threedim = False):
 					dist = np.abs(np.cross(line_point2-line_point1, line_point1-point)) / np.linalg.norm(line_point2-line_point1)
 
 					if dist < radius:
-						array[x][y][value] = 1
+						array[x][y][value+1] = 1
+						array[x][y][0] = 0
 
 		return array
 
@@ -191,11 +193,16 @@ def getTruthArray(file,threedim = False):
 	if threedim:
 		if PRINT_INFO:
 			print("processJSON  getTruthArray using threedim truth")
-		array = np.zeros((DEPTH,grid_size,grid_size,4))
+		array = np.zeros((DEPTH,grid_size,grid_size,NUM_MATERIALS))
+		base = np.ones((DEPTH,grid_size,grid_size,1))
+		array = np.concatenate((base,array),axis = 3)
+
 	else:
 		if PRINT_INFO:
 			print("processJSON  gettrutharray using 2d numchannels truth")
 		array = np.zeros((grid_size,grid_size,NUM_MATERIALS))
+		base = np.ones((grid_size,grid_size,1))
+		array = np.concatenate((base,array),axis = 2)
 
 	with open(file + '_desc.json') as f:
 		data = json.load(f)

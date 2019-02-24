@@ -17,144 +17,100 @@ import time
 from filters import create_filter
 import keras
 from preprocess import loadData
+import sklearn
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import make_scorer
 from keras.wrappers.scikit_learn import KerasClassifier
 import keras.backend as K
+import codecs
+import numpy as np
+from pathlib import Path
+from postprocess import plot_fourd,plot_threed,print_cm,get_report
+import unicodedata
+import re
 
-epochs = 1000
-OUTPUT_CHANNELS = 4
-tf.set_random_seed(10)
-seed = 10
-np.random.seed(seed)
-
-def variable_summaries(var):
-	"""Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
-	with tf.name_scope('summaries'):
-		mean = tf.reduce_mean(var)
-		tf.summary.scalar('mean', mean)
-		with tf.name_scope('stddev'):
-			stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-		tf.summary.scalar('stddev', stddev)
-		tf.summary.scalar('max', tf.reduce_max(var))
-		tf.summary.scalar('min', tf.reduce_min(var))
-		tf.summary.histogram('histogram', var)
+NUM_MATERIALS = 4
+OUTPUT_CHANNELS = NUM_MATERIALS + 1
 
 
-plot_totals = 50
-
-def plot_fourd(data,figurename):
-	print('plot fourd receiving data shape',data.shape)
-	global plot_totals
-	#pvc,wood,metal,aluminum
-	colourmaps = ['Reds','Greens','Blues','Greys']
-
-	figure = plt.figure(plot_totals)
-
-	plot_totals = plot_totals + 1
-	figure.suptitle(figurename + 'PVC:red, wood:green, metal:blue, aluminum:grey')
-	ax = figure.add_subplot(111, projection='3d')
-	for materialIndex ,cmap in zip(range(4),colourmaps):
-		plot_object = data[...,materialIndex]
-		plot_threed_helper(np.squeeze(plot_object), ax = ax,figure = figure,cmap = cmap)
 
 
-def plot_threed_helper(plot_object,figurename = 'default',ax = '',figure = plt.figure(plot_totals),cmap = 'coolwarm',threshold = 0.3):
-	global plot_totals
-	plot_totals = plot_totals + 1
+def onehot_to_label(testY,pred):
 
-	axes = plt.gca()
-	axes.set_xlim([0,plot_object.shape[0]])
-	axes.set_ylim([0,plot_object.shape[1]])
-	axes.set_zlim([0,plot_object.shape[2]])
-	x = np.arange(plot_object.shape[0])[:, None, None]
-	y = np.arange(plot_object.shape[1])[None, :, None]
-	z = np.arange(plot_object.shape[2])[None, None, :]
-	x,y,z = np.broadcast_arrays(x,y,z)
-	# c = np.tile(plot_object.ravel()[:, None], [1, 3])
-	filtered_colour = []
-	filtered_x = []
-	filtered_y = []
-	filtered_z = []
-	ravel_x = x.ravel()
-	ravel_y = y.ravel()
-	ravel_z = z.ravel()
+	flatpred = np.round_(np.reshape(pred,(-1,OUTPUT_CHANNELS)))
+	flatY = np.reshape(testY,(-1,OUTPUT_CHANNELS))
 
-	for index,item in enumerate(plot_object.ravel()):
-		if item > threshold:
-			filtered_x.append(ravel_x[index])
-			filtered_y.append(ravel_y[index])
-			filtered_z.append(ravel_z[index])
-			filtered_colour.append(item)
+	labelY = []
+	labelpred = []
+	for i in range(flatpred.shape[0]):
+		Y_one_hot = list(flatY[i])
+		if sum(Y_one_hot) != 1:
+			raise ValueError('Truth one hot does not sum to one:',sum(Y_one_hot))
+		labelY.append(Y_one_hot.index(1))
 
-	if len(filtered_colour) > 0:
 
-		scatter = ax.scatter(filtered_x,filtered_y,filtered_z,c=filtered_colour,cmap=plt.get_cmap(cmap),norm=mpl.colors.Normalize(vmin=-0.5, vmax=1.5))
+		pred_one_hot = list(flatpred[i])
+		maxindex = pred_one_hot.index(max(pred_one_hot))
+		if max(pred_one_hot) == 0:
+			labelpred.append(0)
+		else:
+			labelpred.append(maxindex)
 
-		plt.xlabel('depth',fontsize=16)
-		plt.ylabel('x',fontsize=16)
-		figure.colorbar(scatter)
-		# plt.clim(0,1)
-	else:
-		print('empty array received')
+	return labelY,labelpred
+
+# trainY_onehot (36, 16800, 5)
+def onehot_to_label_single(testY):
+	flatY = np.reshape(testY,(-1,16800,OUTPUT_CHANNELS))
+	labelY = np.zeros((flatY.shape[0],flatY.shape[1]))
+	for samples in range(flatY.shape[0]):
+		for pixle in range(flatY.shape[1]):
+
+			labelY[samples][pixle] = int(list(flatY[samples][pixle]).index(1))
+
+	return labelY
+
+def my_f1_metric(Y,pred):
+	print('mymetric Y',Y.shape)
+	print('mymetric pred',pred.shape)
+	pred_reshape = np.reshape(pred,(-1,20,21,OUTPUT_CHANNELS))
+	labelY,labelpred = onehot_to_label(Y,pred_reshape)
+	return sklearn.metrics.f1_score(labelY,labelpred,average = 'macro')
+
+def saveHist(path,history):
+
+	new_hist = {}
+	for key in list(history.history.keys()):
+		if type(history.history[key]) == np.ndarray:
+			new_hist[key] == history.history[key].tolist()
+		elif type(history.history[key]) == list:
+		   if  type(history.history[key][0]) == np.float64:
+			   new_hist[key] = list(map(float, history.history[key]))
+
+	with codecs.open(path, 'w', encoding='utf-8') as f:
+		json.dump(new_hist, f, separators=(',', ':'), sort_keys=True, indent=4)
+
+def loadHist(path):
+	with codecs.open(path, 'r', encoding='utf-8') as f:
+		n = json.loads(f.read())
+	return n
+
 
 def f1(y_true, y_pred):
-    y_pred = K.round(y_pred)
-    tp = K.sum(K.cast(y_true*y_pred, 'float'), axis=0)
-    # tn = K.sum(K.cast((1-y_true)*(1-y_pred), 'float'), axis=0)
-    fp = K.sum(K.cast((1-y_true)*y_pred, 'float'), axis=0)
-    fn = K.sum(K.cast(y_true*(1-y_pred), 'float'), axis=0)
+	y_pred = K.round(y_pred)
+	tp = K.sum(K.cast(y_true*y_pred, 'float'), axis=0)
+	# tn = K.sum(K.cast((1-y_true)*(1-y_pred), 'float'), axis=0)
+	fp = K.sum(K.cast((1-y_true)*y_pred, 'float'), axis=0)
+	fn = K.sum(K.cast(y_true*(1-y_pred), 'float'), axis=0)
 
-    p = tp / (tp + fp + K.epsilon())
-    r = tp / (tp + fn + K.epsilon())
+	p = tp / (tp + fp + K.epsilon())
+	r = tp / (tp + fn + K.epsilon())
 
-    f1 = 2*p*r / (p+r+K.epsilon())
-    f1 = tf.where(tf.is_nan(f1), tf.zeros_like(f1), f1)
-    return K.mean(f1)
-
-def plot_threed(plot_object,figurename = 'default',cmap = 'Blues',threshold = 0.3):
-	global plot_totals
-	figure = plt.figure(plot_totals)
-	plot_totals = plot_totals + 1
-
-	figure.suptitle(figurename)
-	ax = figure.add_subplot(111, projection='3d')
+	f1 = 2*p*r / (p+r+K.epsilon())
+	f1 = tf.where(tf.is_nan(f1), tf.zeros_like(f1), f1)
+	return K.mean(f1)
 
 
-	axes = plt.gca()
-	axes.set_xlim([0,plot_object.shape[0]])
-	axes.set_ylim([0,plot_object.shape[1]])
-	axes.set_zlim([0,plot_object.shape[2]])
-	x = np.arange(plot_object.shape[0])[:, None, None]
-	y = np.arange(plot_object.shape[1])[None, :, None]
-	z = np.arange(plot_object.shape[2])[None, None, :]
-	x,y,z = np.broadcast_arrays(x,y,z)
-	# c = np.tile(plot_object.ravel()[:, None], [1, 3])
-	filtered_colour = []
-	filtered_x = []
-	filtered_y = []
-	filtered_z = []
-	ravel_x = x.ravel()
-	ravel_y = y.ravel()
-	ravel_z = z.ravel()
-
-	for index,item in enumerate(plot_object.ravel()):
-		if item > threshold:
-			filtered_x.append(ravel_x[index])
-			filtered_y.append(ravel_y[index])
-			filtered_z.append(ravel_z[index])
-			filtered_colour.append(item)
-
-	if len(filtered_colour) > 0:
-
-		scatter = ax.scatter(filtered_x,filtered_y,filtered_z,c=filtered_colour,cmap=plt.get_cmap(cmap),norm=mpl.colors.Normalize(vmin=0, vmax=1))
-		plt.xlabel('depth',fontsize=16)
-		plt.ylabel('x',fontsize=16)
-		figure.colorbar(scatter)
-		# plt.clim(0,1)
-	else:
-		print('empty array received')
-
-def create_model(hidden_layers = [(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)], filters = 10, activation = 'relu', kernel_initializer = 'glorot_uniform',dropout_rate = 0.0,batch_norm = False,loss='mse', optimizer='rmsprop', metrics=["accuracy"]  ):
+def create_model(hidden_layers = [(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)], activation = 'relu', kernel_initializer = 'glorot_uniform',dropout_rate = 0.0,batch_norm = False,loss='mse', optimizer='rmsprop', metrics=['accuracy']  ):
 
 	layer_params = {
 		"filters": 10,
@@ -193,99 +149,103 @@ def create_model(hidden_layers = [(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)], fil
 			if dropout_rate:
 				model.add(keras.layers.Dropout(p = dropout_rate))
 
-	model.add(keras.layers.Flatten( data_format = 'channels_last' ))
+	# model.add(keras.layers.Conv3D(filters=OUTPUT_CHANNELS, kernel_size=(1,1,1),kernel_initializer=keras.initializers.Ones(), padding='same', data_format='channels_last', activation='softmax'))
+
+	model.add(keras.layers.Reshape((40*20*21,OUTPUT_CHANNELS)))
+	# model.add(keras.layers.Lambda((depth_softmax)))
+	# model.add(keras.layers.Softmax(axis = -1))
+	# model.add(keras.layers.Flatten( data_format = 'channels_last' ))
+
 	model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
 
 	return model
 
 
-def run(trainX, testX, trainY, testY):
-	model  = keras.models.Sequential()
 
-	layer1_params = {
-		"filters": 10,
-		"kernel_size": (5,5,5),
-		"padding":'same',
-		"data_format":'channels_last',
-		"activation":'relu',
-		"use_bias":True,
-		"kernel_initializer":'glorot_uniform',
-		"bias_initializer":'zeros',
-		# "kernel_regularizer":keras.regularizers.l2(0.01)
+def make_run_name(model_params):
+	"""
+	Normalizes string, converts to lowercase, removes non-alpha characters,
+	and converts spaces to hyphens.
+	"""
 
-	}
+	value = ''
+	value = value + 'opt_' + str(model_params['optimizer'])
+	value = value + '_loss_' + str(model_params['loss'])
+	value = value + '_bnorm_' + str(model_params['batch_norm'])
+	value = value + '_kinit_' + str(model_params['kernel_initializer'])
+	value = value + '_act_' + str(model_params['activation'])
+	value = value + '_layersizenum_'
+
+	for layer in model_params['hidden_layers']:
+		size,num = layer
+		value = value + str(size) + 'x' + str(num) + '_'
 
 
-	layer1 = keras.layers.Conv3D(**layer1_params)
-	model.add(layer1)
+	return value
 
-	layer2_params = {
-		"filters": 10,
-		"kernel_size": (5,5,5),
-		"padding":'same',
-		"data_format":'channels_last',
-		"activation":'relu',
-		"use_bias":True,
-		"kernel_initializer":'glorot_uniform',
-		"bias_initializer":'zeros',
-		# "kernel_regularizer":keras.regularizers.l2(0.01)
+def run(trainX, testX, trainY_flat, testY_flat ,epochs ,batch_size,model_params,load_model = False,show_plot=True ):
 
-	}
-	layer2 = keras.layers.Conv3D(**layer2_params)
-	model.add(layer2)
+	if load_model:
+		model = keras.models.load_model('./model/keras_model.h5')#,custom_objects={'my_f1_metric': my_f1_metric}
+	else:
+		model = create_model(**model_params)
 
-	layer3_params = {
-		"filters": 10,
-		"kernel_size": (5,5,5),
-		"padding":'same',
-		"data_format":'channels_last',
-		"activation":'relu',
-		"use_bias":True,
-		"kernel_initializer":'glorot_uniform',
-		"bias_initializer":'zeros',
-		# "kernel_regularizer":keras.regularizers.l2(0.01)
+	now = datetime.now()
+	tensorboard = keras.callbacks.TensorBoard(log_dir="highlevel_tb_logs\\"+ make_run_name(model_params) +"{}".format(now.strftime("%m%d-%H%M")),histogram_freq=10,write_images=True)
+	history = model.fit(trainX, trainY_flat, epochs=epochs, batch_size=4,validation_split=0.3,callbacks=[tensorboard])
 
-	}
-	layer3 = keras.layers.Conv3D(**layer3_params)
-	model.add(layer3)
+	score = model.evaluate(testX, testY_flat, verbose=1)
 
-	layer_final_params = {
-		"filters": OUTPUT_CHANNELS,
-		"kernel_size": (5,5,5),
-		"padding":'same',
-		"data_format":'channels_last',
-		"activation":None,
-		"use_bias":True,
-		"kernel_initializer":'glorot_uniform',
-		"bias_initializer":'zeros',
-		# "kernel_regularizer":keras.regularizers.l2(0.01)
-
-	}
-	layerfinal = keras.layers.Conv3D(**layer_final_params)
-	model.add(layerfinal)
-
-	model.compile(optimizer='rmsprop',loss='mse',metrics=['accuracy'])
-
-	model.fit(trainX, trainY, epochs=epochs, batch_size=4)
-	score = model.evaluate(testX, testY, verbose=1)
 	print(score)
 	print('Test loss:', score[0])
-	print('Test accuracy:', score[1])
+	print('Test f1:', score[1])
 	save_dir = './model/keras_model.h5'
 	model.save(save_dir)
 	print('model saved at',save_dir)
+	histpath = './model/keras_history.json'
+	saveHist(histpath,history)
+	# loadedhist = loadHist(histpath)
+	# print(loadedhist)
+
+	my_file = Path('./np_save/highlevellogs.npy')
+	if my_file.is_file():
+		logs = list(np.load('./np_save/highlevellogs.npy'))
+	else:
+		logs = []
+	current = {'model_params':model_params,'loss':score[0],'f1':score[1],'epochs':epochs,'batch_size':batch_size}
+	logs.append(current)
+	np.save('./np_save/highlevellogs.npy', logs)
+	print('logs saved at ./np_save/highlevellogs.npy')
+
+
+
+	# # list all data in history
+	# print(history.history.keys())
+	if show_plot:
+		plot_num = 0
+		for metric in history.history.keys():
+			# summarize history for accuracy
+			plt.figure(plot_num)
+			plot_num = plot_num + 1
+			plt.plot(history.history[metric])
+			plt.title(metric)
+			plt.xlabel('epoch')
+		plt.legend([*history.history.keys()], loc='upper left')
+		plt.show()
+
 
 def predict(data):
-	model = keras.models.load_model('./model/keras_model.h5')
+	model = keras.models.load_model('./model/keras_model.h5',custom_objects={'f1': f1})
 	pred = model.predict(data)
 	return pred
 
 def grid_search(X,Y):
 
-	model = KerasClassifier(build_fn=create_model, verbose=1)
+
+	model = KerasClassifier(build_fn=create_model,verbose=1)
 	# define the grid search parameters
 	batch_size = [1,2,4]
-	epochs = [100, 500, 1000]
+	epochs = [100, 200, 400]
 	hidden_layers = [
 		[(5,10),(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)],
 		[(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)],
@@ -293,43 +253,42 @@ def grid_search(X,Y):
 		[(5,10),(5,OUTPUT_CHANNELS)],
 		[(5,OUTPUT_CHANNELS)]
 		]
-	filters = [3,5,7,9]
-	activation = ['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
-	kernel_initializer = ['uniform', 'lecun_uniform', 'normal', 'zero', 'glorot_normal', 'glorot_uniform', 'he_normal', 'he_uniform']
+	activation = ['relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
+	kernel_initializer = ['uniform', 'lecun_uniform', 'normal', 'glorot_normal', 'glorot_uniform']
 	dropout_rate = [0.0,0.2,0.4,0.6]
 	batch_norm = [True, False]
 	loss=['mean_squared_error','mean_absolute_error','mean_absolute_percentage_error','mean_squared_logarithmic_error','squared_hinge','hinge','logcosh','categorical_crossentropy','binary_crossentropy','kullback_leibler_divergence','poisson','cosine_proximity']
 	optimizer = ['SGD', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']
 
-	param_grid = dict(batch_size=[2], epochs=[500],loss=loss)
+	param_grid = dict(batch_size=[1], epochs=[1],optimizer = optimizer)
 
-	grid = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1)
+	# def print_mse(y,ypred):
+	# 	print('y',y.shape)
+	# 	print('ypred',ypred.shape)
+	# 	return sklearn.metrics.mean_squared_error(y,ypred)
+	#
+	# scorer = make_scorer(print_mse) ,scoring=['f1_macro'], refit='f1_macro'
+
+	grid = GridSearchCV(estimator=model, param_grid=param_grid,scoring=['neg_mean_squared_error'], refit='neg_mean_squared_error',n_jobs=1)
+
+	print('grid search starting')
+	print('X',X.shape)
+	print('Y',Y.shape)
 	grid_result = grid.fit(X,Y)
 	# summarize results
 	print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
-	means = grid_result.cv_results_['mean_test_score']
-	stds = grid_result.cv_results_['std_test_score']
+	means = grid_result.cv_results_['mean_test_neg_mean_squared_error']
+	stds = grid_result.cv_results_['std_test_neg_mean_squared_error']
 	params = grid_result.cv_results_['params']
+
 	for mean, stdev, param in zip(means, stds, params):
 		print("%f (%f) with: %r" % (mean, stdev, param))
-
-
+	now = datetime.now()
+	np.save('./np_save/gridsearch' + now.strftime("%m%d-%H%M"), {'mean':means, 'stdev':stds, 'param':params,'best_score':grid_result.best_score_,'best_param':grid_result.best_params_})
 
 if __name__ == '__main__':
 
-	model_params = {
-		'backproj_filter_size': 20,
-		'backproj_filter_depth': 20,
-		# 'layerlist': [NUM_CHANNELS,10,20,OUTPUT_CHANNELS],
-		'keep': 1.0, #dropout rate for first cnn layer
-		'filter_height': 1,
-		'filter_size' : 5,
-		'use_saved_model':False, #when true, uses the previous model and continue training
-		'exp_name': 'backprop_norm_drop1',
-		'num_backproj_filter': 1,
-		'show_results': False #when true, uses the previously trained model and shows results of test, overrides use saved model to true
 
-	}
 
 	data_params = {
 
@@ -342,33 +301,93 @@ if __name__ == '__main__':
 	# reload_data()
 
 	trainX, testX, trainY, testY = loadData(**data_params)
-
 	combinedX = np.concatenate((trainX,testX),axis = 0)
-
-	combinedY = np.concatenate((trainY,testY),axis = 0)# (34, 40, 20, 21, 4)
+	combinedY = np.concatenate((trainY,testY),axis = 0)# (34, 40, 20, 21, 5)
 	combinedY = np.reshape(combinedY,(combinedY.shape[0],-1))
+	trainY_flat= np.reshape(trainY,(trainY.shape[0],-1))
+	testY_flat= np.reshape(testY,(testY.shape[0],-1))
+	trainY_onehot= np.reshape(trainY,(trainY.shape[0],-1,OUTPUT_CHANNELS))
+	testY_onehot= np.reshape(testY,(testY.shape[0],-1,OUTPUT_CHANNELS))
+	testY_label = np.array(onehot_to_label_single(testY_flat))
+	trainY_label = np.array(onehot_to_label_single(trainY_flat))
+	print('trainY',trainY.shape)
+	print('trainY_onehot',trainY_onehot.shape)
+	print('trainY_label',trainY_label.shape)
 
 	# grid_search(combinedX,combinedY)
+	hidden_layers_space = [
+		[(5,15),(5,15),(5,15),(5,15),(5,15),(5,OUTPUT_CHANNELS)],
+		[(5,15),(5,15),(5,15),(5,15),(5,15),(5,OUTPUT_CHANNELS)],
+		[(10,10),(10,10),(10,10),(10,10),(10,10),(10,OUTPUT_CHANNELS)],
+		[(5,10),(5,10),(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)],
+		[(5,10),(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)],
+		[(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)],
+		[(5,10),(5,10),(5,OUTPUT_CHANNELS)],
+		[(5,10),(5,OUTPUT_CHANNELS)],
+		[(5,OUTPUT_CHANNELS)]
+		]
+	activation_space = ['relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
+	kernel_initializer_space = ['uniform', 'lecun_uniform', 'normal', 'glorot_normal', 'glorot_uniform']
+	dropout_rate_space = [0.0,0.1,0.2,0.3]
+	batch_norm_space = [True, False]
+	loss_space=['mean_squared_error','mean_absolute_error','mean_absolute_percentage_error','mean_squared_logarithmic_error','squared_hinge','hinge','logcosh','categorical_crossentropy','binary_crossentropy','kullback_leibler_divergence','poisson','cosine_proximity']
+	optimizer_space = ['SGD', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']
 
-	# model = create_model()
-	# trainY_flat = np.reshape(trainY,(trainY.shape[0],-1))
-	# testY_flat = np.reshape(testY,(testY.shape[0],-1))
-	# model.fit(trainX, trainY_flat, epochs=100, batch_size=4)
-	# score = model.evaluate(testX, testY_flat, verbose=1)
-	# print('Test loss:', score[0])
-	# print('Test accuracy:', score[1])
-	# save_dir = './model/keras_model.h5'
-	# model.save(save_dir)
-	# print('model saved at',save_dir)
 
-	#
-	# run(trainX, testX, trainY, testY)
-	#
+	model_params = {
+		'hidden_layers': [(5,10),(5,10),(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)], #format: kernel_size, num_filters
+		'activation':'relu',
+		'kernel_initializer': 'glorot_uniform',
+		'dropout_rate' : 0.1,
+		'batch_norm':False,
+		'loss': 'mse',
+		'optimizer': 'adam',
+	}
+
+	trainY_type = trainY_onehot
+	testY_type =testY_onehot
+	seed = 10
+	tf.set_random_seed(seed)
+	np.random.seed(seed)
+	continue_training = False
+	epochs = 1000
+	
+	working_model_params = model_params.copy()
+	for batch_norm_item in batch_norm_space:
+		working_model_params['batch_norm'] = batch_norm_item
+		run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = 2,model_params=working_model_params,load_model = continue_training,show_plot=False )
+
+	working_model_params = model_params.copy()
+	for activation_item in activation_space:
+		model_params['activation'] = activation_item
+		run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = 2,model_params=working_model_params,load_model = continue_training,show_plot=False )
+
+	working_model_params = model_params.copy()
+	for kernel_initializer_item in kernel_initializer_space:
+		model_params['kernel_initializer'] = kernel_initializer_item
+		run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = 2,model_params=working_model_params,load_model = continue_training,show_plot=False )
+
+	working_model_params = model_params.copy()
+	for optimizer_item in optimizer_space:
+		model_params['optimizer'] = optimizer_item
+		run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = 2,model_params=working_model_params,load_model = continue_training,show_plot=False )
+
+	working_model_params = model_params.copy()
+	for dropout_item in dropout_rate_space:
+		model_params['dropout_rate'] = dropout_item
+		run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = 2,model_params=working_model_params,load_model = continue_training,show_plot=False )
+
+	working_model_params = model_params.copy()
+	for loss_item in loss_space:
+		model_params['loss'] = loss_item
+		run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = 2,model_params=working_model_params,load_model = continue_training,show_plot=False )
+	# get_report(testX,trainX,testY_onehot,trainY_onehot)
+
 
 	# pred = predict(trainX)
 	# for i in range(trainY.shape[0]):
 	# 	plot_threed(trainX[i],'input')
-	# 	pred_reshape = np.reshape(pred[i],(40,20,21,4))
+	# 	pred_reshape = np.reshape(pred[i],(40,20,21,OUTPUT_CHANNELS))
 	# 	plot_fourd(pred_reshape,'pred')
 	# 	plot_fourd(trainY[i],'truth')
 	# 	plt.show()
@@ -376,7 +395,16 @@ if __name__ == '__main__':
 	# pred = predict(testX)
 	# for i in range(testY.shape[0]):
 	# 	plot_threed(testX[i],'input')
-	# 	pred_reshape = np.reshape(pred[i],(40,20,21,4))
+	# 	pred_reshape = np.reshape(pred[i],(40,20,21,OUTPUT_CHANNELS))
 	# 	plot_fourd(pred_reshape,'pred')
 	# 	plot_fourd(testY[i],'truth')
 	# 	plt.show()
+
+
+
+	# np.save('./np_save/' + 'trainX' + 'Final',trainX)
+	# np.save('./np_save/' + 'testX' + 'Final',testX)
+	# np.save('./np_save/' + 'trainY' + 'Final',trainY)
+	# np.save('./np_save/' + 'testY' + 'Final',testY)
+	# np.save('./np_save/' + 'combinedX' + 'Final',combinedX)
+	# np.save('./np_save/' + 'combinedY_flat' + 'Final',combinedY)

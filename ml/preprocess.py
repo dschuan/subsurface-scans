@@ -136,7 +136,7 @@ if __name__ == '__main__':
 		'only_max': False,
 		'saved_path': "../new_res/*.json"
 	}
-	# reload_data()
+	reload_data()
 	trainX, testX, trainY, testY = loadData(**data_params)
 
 	print('trainX',trainX.shape,'trainY',trainY.shape)
