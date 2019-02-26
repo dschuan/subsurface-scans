@@ -52,7 +52,7 @@ def getFiles(path,max_items_per_scan,only_max):
 
 
 
-def loadData(reload, max_items_per_scan = 2, train_test_split = 0.7, only_max = False, saved_path = "../new_res/*.json"):
+def loadData(reload, max_items_per_scan = 2, train_test_split = 0.7, only_max = False, saved_path = "../new_res/*.json",z_len = 40):
 
 	trainX_file = './np_save/trainX_v2_' + str(max_items_per_scan)
 	trainY_file = './np_save/trainY_v2_' + str(max_items_per_scan)
@@ -76,7 +76,7 @@ def loadData(reload, max_items_per_scan = 2, train_test_split = 0.7, only_max = 
 		trainX =  np.load(trainX_file+'.npy')
 		trainY = np.load(trainY_file+'.npy')
 
-
+	trainX = trainX[:,:z_len,:,:]
 
 	#Shuffle data
 	N = len(trainX)
@@ -100,6 +100,9 @@ def loadData(reload, max_items_per_scan = 2, train_test_split = 0.7, only_max = 
 		trainX = (trainX - v_min)/(v_max - v_min)
 		return [flatten4D(trainX), [], flatten4D(trainY), []]
 
+
+
+
 	numSamples = trainX.shape[0]
 	#create train test set
 	testX, testY = trainX[int(numSamples*train_test_split):],trainY[int(numSamples*train_test_split):]
@@ -112,6 +115,9 @@ def loadData(reload, max_items_per_scan = 2, train_test_split = 0.7, only_max = 
 	v_max = trainX.max(axis=(0, 1, 2, 3), keepdims=True)
 	trainX = (trainX - v_min)/(v_max - v_min)
 	testX = (testX - v_min)/(v_max - v_min)
+
+
+
 	return [trainX.reshape(trainX.shape + (1,)), testX.reshape(testX.shape + (1,)), trainY, testY]
 	# return [flatten4D(trainX), flatten4D(testX),flatten4D(trainY), flatten4D(testY)]
 

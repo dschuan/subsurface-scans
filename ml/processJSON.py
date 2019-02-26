@@ -216,7 +216,7 @@ def getTruthArray(file,threedim = False):
 
 			line = [(start,end)]
 
-			radius = MATERIALS[item['material']]['size']
+			radius = MATERIALS[item['material']]['size']/2
 			value = MATERIALS[item['material']]['value']
 			print('processJSON  gettrutharray loading ',item['material'])
 			#print('plotting',item['material'],'from',start,'to',end)

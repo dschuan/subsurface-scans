@@ -27,7 +27,7 @@ import numpy as np
 from pathlib import Path
 
 
-
+NUM_MATERIALS = 4
 plot_totals = 50
 
 def plot_fourd(data,figurename):
@@ -164,23 +164,3 @@ def print_cm(cm, labels, hide_zeroes=False, hide_diagonal=False, hide_threshold=
                 cell = cell if cm[i, j] > hide_threshold else empty_cell
             print(cell, end=" ")
         print()
-
-def get_report(testX,trainX,testY,trainY):
-
-	pred = predict(testX)
-	pred_reshape = np.reshape(pred,(-1,20,21,OUTPUT_CHANNELS))
-	labelY,labelpred = onehot_to_label(testY,pred_reshape)
-	print('test stats********************************************************')
-	print(sklearn.metrics.classification_report(labelY,labelpred,target_names = ['empty','pvc','wood','metal','aluminum']))
-	cm = sklearn.metrics.confusion_matrix(labelY, labelpred)
-	print_cm(cm, labels =  ['empty','pvc','wood','metal','aluminum'])
-	print()
-	print()
-	pred = predict(trainX)
-	pred_reshape = np.reshape(pred,(-1,20,21,OUTPUT_CHANNELS))
-	labelY,labelpred = onehot_to_label(trainY,pred_reshape)
-	print('train stats*******************************************************')
-	print(sklearn.metrics.classification_report(labelY,labelpred,target_names = ['empty','pvc','wood','metal','aluminum']))
-	cm = sklearn.metrics.confusion_matrix(labelY, labelpred)
-	print_cm(cm, labels =  ['empty','pvc','wood','metal','aluminum'])
-	print('macro f1',sklearn.metrics.f1_score(labelY,labelpred,average = 'macro'))
