@@ -13,7 +13,7 @@ import math
 NUM_POINTS = 4096
 PRINT_INFO = True
 
-def processArray(file,use_preprocessed = False):
+def processArray(file,use_backproj = True,use_preprocessed = False):
 
 	truth = getTruthArray(file,True)
 	filename = file.split('\\')[-1]
@@ -22,11 +22,22 @@ def processArray(file,use_preprocessed = False):
 		print('processArray looking at', filename)
 
 
-	if use_preprocessed:
+	if not use_backproj:
+		print("getting clean signal data")
+		return (get_data(file,use_backproj = False),truth)
 
+	elif use_preprocessed:
+		print("Using preprocessed backproj data")
 		return (np.load('./backprojraw/' + filename + '.npy'),truth)
+
 	else:
+		print("Reloading backproj data")
+		cfm = 'no'
+		while cfm != 'yes':
+			cfm = input("long process to init, press yes to confirm")
 		return (get_data(file),truth)
+
+
 
 
 
@@ -235,18 +246,20 @@ def back_projection(complex_clean_signal,name,max_plane_offset = -1,reload = Fal
 		return norm_image
 
 
-def get_data(file):
+def get_data(file,use_backproj = True):
 	background = processBackground()
 	original = loadIntoArray(file)
 	cleaned_signal = cleanTarget(original,background)
 	complex_clean_signal = convert_to_complex(cleaned_signal,plot = False)
-	# sample = sample_clean_signal(cleaned_signal)
+	#
 	#
 	# sample_reshape = np.transpose(sample, (2, 0, 1))
 
-
-	backproj = back_projection(complex_clean_signal,name = file,max_plane_offset = -1,reload = True)
-	return backproj
+	if use_backproj:
+		backproj = back_projection(complex_clean_signal,name = file,max_plane_offset = -1,reload = True)
+		return backproj
+	else:
+		return sample_clean_signal(cleaned_signal)
 
 if __name__ == "__main__":
 	path ="../new_res_temp/*.json"

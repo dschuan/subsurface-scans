@@ -15,11 +15,11 @@ import copy
 import time
 from filters import create_filter
 
-def load_data(files,use_preprocessed = True):
+def load_data(files,use_backproj = True,use_preprocessed = True):
 	X = []
 	Y = []
 	for file in files:
-		scanArray,truthArray = processArray(file,use_preprocessed = use_preprocessed)
+		scanArray,truthArray = processArray(file,use_backproj = use_backproj,use_preprocessed = use_preprocessed)
 		print('preprocess looking at',file,'truthArray.shape',truthArray.shape)
 		X.append(np.transpose(scanArray, (2, 0, 1)))
 		Y.append(truthArray)
@@ -52,7 +52,7 @@ def getFiles(path,max_items_per_scan,only_max):
 
 
 
-def loadData(reload, max_items_per_scan = 2, train_test_split = 0.7, only_max = False, saved_path = "../new_res/*.json"):
+def loadData(reload, max_items_per_scan = 2, train_test_split = 0.7, only_max = False, use_backproj = True ,saved_path = "../new_res/*.json"):
 
 	trainX_file = './np_save/trainX_v2_' + str(max_items_per_scan)
 	trainY_file = './np_save/trainY_v2_' + str(max_items_per_scan)
@@ -62,17 +62,43 @@ def loadData(reload, max_items_per_scan = 2, train_test_split = 0.7, only_max = 
 		trainY_file = trainY_file + 'only'
 
 
-
 	if reload:
-		print('preprocess Loading Data for num_items', max_items_per_scan, 'only_max',str(only_max))
-		files = getFiles(saved_path,max_items_per_scan,only_max)
-		trainX, trainY = load_data(files)
-		trainX = np.array(trainX)
-		trainY = np.array(trainY)
-		np.save(trainX_file, trainX)
-		np.save(trainY_file, trainY)
+
+		if not use_backproj:
+
+
+			trainX_file = trainX_file + '_raw'
+			trainY_file = trainY_file + '_raw'
+			print('preprocess Loading raw Data for num_items', max_items_per_scan, 'only_max',str(only_max))
+			files = getFiles(saved_path,max_items_per_scan,only_max)
+			trainX, trainY = load_data(files,use_backproj = False)
+			trainX = np.array(trainX)
+			trainY = np.array(trainY)
+			np.save(trainX_file, trainX)
+			np.save(trainY_file, trainY)
+
+		else:
+
+			trainX_file = trainX_file + '_backproj'
+			trainY_file = trainY_file + '_backproj'
+			print('preprocess Loading backproj Data for num_items', max_items_per_scan, 'only_max',str(only_max))
+			files = getFiles(saved_path,max_items_per_scan,only_max)
+			trainX, trainY = load_data(files)
+			trainX = np.array(trainX)
+			trainY = np.array(trainY)
+			np.save(trainX_file, trainX)
+			np.save(trainY_file, trainY)
 
 	else:
+
+		if not use_backproj:
+			trainX_file = trainX_file + '_raw'
+			trainY_file = trainY_file + '_raw'
+		else:
+
+			trainX_file = trainX_file + '_backproj'
+			trainY_file = trainY_file + '_backproj'
+
 		trainX =  np.load(trainX_file+'.npy')
 		trainY = np.load(trainY_file+'.npy')
 
@@ -117,6 +143,53 @@ def loadData(reload, max_items_per_scan = 2, train_test_split = 0.7, only_max = 
 
 def flatten4D(nparray):
 	return nparray.reshape(nparray.shape[0],-1)
+
+def processData(data_array,commands =  ["crop","transpose","flip_x","flip_y"]):
+
+	result = data_array
+	print("receiving data size",len(data_array))
+	for command in commands:
+		print(command)
+		for data in result:
+			print("input",data.shape)
+		if command == "crop":
+
+			for i in range(len(result)):
+				left_up = slice(0,16)
+				right_down = slice(4,20)
+				z_field = slice(0,32)
+				data = result[i][:,z_field,:,:]
+				crop1 = data[:,:,right_down,left_up].copy()
+				crop2 = data[:,:,left_up,right_down].copy()
+				crop3 = data[:,:,right_down,right_down].copy()
+				crop4 = data[:,:,left_up,left_up].copy()
+
+				result[i] = np.concatenate((crop1,crop2,crop3,crop4),axis = 0)
+
+		if command == "transpose":
+
+			for i in range(len(result)):
+
+				transposed_data = result[i].transpose((0,1,3,2,4)).copy()
+				result[i] = np.concatenate((result[i],transposed_data),axis = 0)
+
+
+		if command == "flip_x":
+			for i in range(len(result)):
+				flip_data = np.flip(result[i], (2)).copy()
+				result[i] = np.concatenate((result[i],flip_data),axis = 0)
+
+		if command == "flip_y":
+			for i in range(len(result)):
+				flip_data = np.flip(result[i], (3)).copy()
+				result[i] = np.concatenate((result[i],flip_data),axis = 0)
+		for data in result:
+			print("output",data.shape)
+	print("returning data size",len(result))
+
+	return result
+
+
 
 
 def reload_data():

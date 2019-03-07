@@ -16,7 +16,7 @@ import copy
 import time
 from filters import create_filter
 import keras
-from preprocess import loadData
+from preprocess import loadData,processData
 import sklearn
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import make_scorer
@@ -36,7 +36,7 @@ OUTPUT_CHANNELS = NUM_MATERIALS + 1
 def get_report(testX,trainX,testY,trainY):
 
 	pred = predict(testX)
-	pred_reshape = np.reshape(pred,(-1,20,21,OUTPUT_CHANNELS))
+	pred_reshape = np.reshape(pred,(-1,16,16,OUTPUT_CHANNELS))
 	labelY,labelpred = onehot_to_label(testY,pred_reshape)
 	print('test stats********************************************************')
 	print(sklearn.metrics.classification_report(labelY,labelpred,target_names = ['empty','pvc','wood','metal','aluminum']))
@@ -45,7 +45,7 @@ def get_report(testX,trainX,testY,trainY):
 	print()
 	print()
 	pred = predict(trainX)
-	pred_reshape = np.reshape(pred,(-1,20,21,OUTPUT_CHANNELS))
+	pred_reshape = np.reshape(pred,(-1,16,16,OUTPUT_CHANNELS))
 	labelY,labelpred = onehot_to_label(trainY,pred_reshape)
 	print('train stats*******************************************************')
 	print(sklearn.metrics.classification_report(labelY,labelpred,target_names = ['empty','pvc','wood','metal','aluminum']))
@@ -90,7 +90,7 @@ def onehot_to_label_single(testY):
 def my_f1_metric(Y,pred):
 	print('mymetric Y',Y.shape)
 	print('mymetric pred',pred.shape)
-	pred_reshape = np.reshape(pred,(-1,20,21,OUTPUT_CHANNELS))
+	pred_reshape = np.reshape(pred,(-1,16,16,OUTPUT_CHANNELS))
 	labelY,labelpred = onehot_to_label(Y,pred_reshape)
 	return sklearn.metrics.f1_score(labelY,labelpred,average = 'macro')
 
@@ -144,11 +144,13 @@ def create_model(hidden_layers = [(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)],  ke
 	}
 
 	model = keras.models.Sequential()
+	firstlayer  = True
 	for index, layer in enumerate(hidden_layers):
 		kernel_size, num_filters = layer
 		layer_params["kernel_size"] = (kernel_size,kernel_size,kernel_size)
 		layer_params["filters"] = num_filters
 		layer_params["activation"] = activation
+		layer_params["kernel_regularizer"] = kernel_regularizer
 
 		layer_params["kernel_initializer"] = kernel_initializer
 
@@ -158,9 +160,11 @@ def create_model(hidden_layers = [(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)],  ke
 			layer_params["activation"] = None
 			layer_params["filters"] = OUTPUT_CHANNELS
 
-
-		model.add(keras.layers.Conv3D(**layer_params))
-
+		if firstlayer:
+			firstlayer  = False
+			model.add(keras.layers.Conv3D(input_shape=(32,16,16,1),**layer_params))
+		else:
+			model.add(keras.layers.Conv3D(**layer_params))
 		if not lastlayer:
 
 			if batch_norm:
@@ -168,15 +172,16 @@ def create_model(hidden_layers = [(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)],  ke
 			if dropout_rate:
 				model.add(keras.layers.Dropout(p = dropout_rate))
 
+	model.add(keras.layers.Conv3D(5, 1, activation = 'linear'))
 	# model.add(keras.layers.Conv3D(filters=OUTPUT_CHANNELS, kernel_size=(1,1,1),kernel_initializer=keras.initializers.Ones(), padding='same', data_format='channels_last', activation='softmax'))
-	model.add(keras.layers.Reshape((-1,OUTPUT_CHANNELS)))
-	# model.add(keras.layers.Reshape((40*20*21,OUTPUT_CHANNELS)))
+	# model.add(keras.layers.Reshape((-1,OUTPUT_CHANNELS)))
+	# model.add(keras.layers.Reshape((32,16,16,OUTPUT_CHANNELS)))
 	# model.add(keras.layers.Lambda((depth_softmax)))
 	# model.add(keras.layers.Softmax(axis = -1))
 	# model.add(keras.layers.Flatten( data_format = 'channels_last' ))
 
 	model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
-
+	print(model.summary())
 	return model
 
 def to_acronym(item):
@@ -209,7 +214,7 @@ def make_run_name(model_params,tag = ''):
 
 	return value
 
-def run(trainX, testX, trainY_flat, testY_flat ,epochs ,batch_size,model_params,load_model = False,show_plot=True,tag = '' ):
+def run(trainX, testX, trainY_flat, testY_flat ,epochs ,batch_size,model_params,load_model = False,show_plot=True,tag = '',validation_split = 0.0 ):
 
 	if load_model:
 		model = keras.models.load_model('./model/keras_model.h5')#,custom_objects={'my_f1_metric': my_f1_metric}
@@ -217,8 +222,13 @@ def run(trainX, testX, trainY_flat, testY_flat ,epochs ,batch_size,model_params,
 		model = create_model(**model_params)
 
 	now = datetime.now()
-	tensorboard = keras.callbacks.TensorBoard(log_dir="tblogs\\"+ make_run_name(model_params,tag) +"{}".format(now.strftime("%m%d-%H%M")),histogram_freq=10,write_images=True)
-	history = model.fit(trainX, trainY_flat, epochs=epochs, batch_size=4,validation_split=0.3,callbacks=[tensorboard])
+
+	if validation_split > 0.0:
+		tensorboard = keras.callbacks.TensorBoard(log_dir="tblogs\\"+ make_run_name(model_params,tag) +"{}".format(now.strftime("%m%d-%H%M")),histogram_freq=10,write_images=True)
+		history = model.fit(trainX, trainY_flat, epochs=epochs, batch_size=4,validation_split=validation_split,callbacks=[tensorboard])
+
+	else:
+		history = model.fit(trainX, trainY_flat, epochs=epochs, batch_size=4,validation_split=validation_split)
 
 	score = model.evaluate(testX, testY_flat, verbose=1)
 
@@ -322,23 +332,31 @@ if __name__ == '__main__':
 		'max_items_per_scan': 2, # maximum number of items in a scanf
 		'train_test_split': 0.7, #size of training data
 		'only_max': False,
-		'saved_path': "../new_res/*.json"
+		'saved_path': "../new_res/*.json",
+		'use_backproj': True # set to false to use clean signal instead of backproj
 	}
 	# reload_data()
+	trainX_, testX_, trainY_, testY_ = loadData(**data_params)
+	trainX, trainY = processData([trainX_, trainY_],commands = ["crop","transpose","flip_x","flip_y"])
+	testX, testY = processData([testX_, testY_],commands = ["crop"])
+	N = len(trainX)
+	idx = np.arange(N)
+	np.random.seed(5)
+	np.random.shuffle(idx)
+	trainX, trainY = trainX[idx], trainY[idx]
 
-	trainX, testX, trainY, testY = loadData(**data_params)
-	combinedX = np.concatenate((trainX,testX),axis = 0)
-	combinedY = np.concatenate((trainY,testY),axis = 0)# (34, 40, 20, 21, 5)
-	combinedY = np.reshape(combinedY,(combinedY.shape[0],-1))
-	trainY_flat= np.reshape(trainY,(trainY.shape[0],-1))
-	testY_flat= np.reshape(testY,(testY.shape[0],-1))
+	# combinedX = np.concatenate((trainX,testX),axis = 0)
+	# combinedY = np.concatenate((trainY,testY),axis = 0)# (34, 40, 20, 21, 5)
+	# combinedY = np.reshape(combinedY,(combinedY.shape[0],-1))
+	# trainY_flat= np.reshape(trainY,(trainY.shape[0],-1))
+	# testY_flat= np.reshape(testY,(testY.shape[0],-1))
 	trainY_onehot= np.reshape(trainY,(trainY.shape[0],-1,OUTPUT_CHANNELS))
 	testY_onehot= np.reshape(testY,(testY.shape[0],-1,OUTPUT_CHANNELS))
-	testY_label = np.array(onehot_to_label_single(testY_flat))
-	trainY_label = np.array(onehot_to_label_single(trainY_flat))
+	# testY_label = np.array(onehot_to_label_single(testY_flat))
+	# trainY_label = np.array(onehot_to_label_single(trainY_flat))
 	print('trainY',trainY.shape)
 	print('trainY_onehot',trainY_onehot.shape)
-	print('trainY_label',trainY_label.shape)
+	# print('trainY_label',trainY_label.shape)
 
 	# grid_search(combinedX,combinedY)
 	hidden_layers_space = [
@@ -374,50 +392,50 @@ if __name__ == '__main__':
 	regularizer_space = [None,keras.regularizers.l1(0.01),keras.regularizers.l2(0.01),keras.regularizers.l1_l2(l1=0.01, l2=0.01)]
 
 	model_params = {
-		'hidden_layers': [(5,10),(5,10),(5,10),(5,10),(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)], #format: kernel_size, num_filters
+		'hidden_layers': [(5,10),(5,10),(5,10),(5,10),(5,10),(5,OUTPUT_CHANNELS)], #format: kernel_size, num_filters
 		'activation':'relu',
-		'kernel_initializer': 'glorot_uniform',
 		'dropout_rate' : 0.2,
 		'batch_norm':False,
 		'loss': 'mse',
-		'optimizer': 'rmsprop',
-		'kernel_regularizer': None
+		'optimizer': 'adam',
+		"kernel_initializer" : "glorot_uniform",
+		'kernel_regularizer': None #keras.regularizers.l2(0.01)
 	}
 
-	trainY_type = trainY_onehot
-	testY_type =testY_onehot
+	trainY_type = trainY
+	testY_type =testY
 	seed = 10
 	tf.set_random_seed(seed)
 	np.random.seed(seed)
 	continue_training = False
-	epochs = 1000
-	batch_size = 2
-	tag = ''
+	epochs = 50
+	batch_size = 16
+	tag = 'cnn_dataug_'
 
 	working_model_params = model_params.copy()
 	# for batch_norm_item in batch_norm_space:
 	# 	working_model_params['batch_norm'] = batch_norm_item
 
-	run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = 2,model_params=working_model_params,load_model = continue_training,show_plot=False )
-
+	# run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = batch_size,model_params=working_model_params,load_model = continue_training,show_plot=False,validation_split = 0.3 )
+	#
 	get_report(testX,trainX,testY_onehot,trainY_onehot)
 
 
-	# pred = predict(trainX)
-	# for i in range(trainY.shape[0]):
-	# 	plot_threed(trainX[i],'input')
-	# 	pred_reshape = np.reshape(pred[i],(40,20,21,OUTPUT_CHANNELS))
-	# 	plot_fourd(pred_reshape,'pred')
-	# 	plot_fourd(trainY[i],'truth')
-	# 	plt.show()
-
-	pred = predict(testX)
-	for i in range(testY.shape[0]):
-		plot_threed(testX[i],'input')
-		pred_reshape = np.reshape(pred[i],(40,20,21,OUTPUT_CHANNELS))
+	pred = predict(trainX)
+	for i in range(trainY.shape[0]):
+		plot_threed(trainX[i],'input',threshold = 0.6)
+		pred_reshape = np.reshape(pred[i],(32,16,16,OUTPUT_CHANNELS))
 		plot_fourd(pred_reshape,'pred')
-		plot_fourd(testY[i],'truth')
+		plot_fourd(trainY[i],'truth')
 		plt.show()
+
+	# pred = predict(testX)
+	# for i in range(testY.shape[0]):
+	# 	plot_threed(testX[i],'input')
+	# 	pred_reshape = np.reshape(pred[i],(32,16,16,OUTPUT_CHANNELS))
+	# 	plot_fourd(pred_reshape,'pred')
+	# 	plot_fourd(testY[i],'truth')
+	# 	plt.show()
 
 
 

@@ -30,20 +30,24 @@ from pathlib import Path
 NUM_MATERIALS = 4
 plot_totals = 50
 
-def plot_fourd(data,figurename):
+def plot_fourd(data,figurename,threshold = 0.5,plot_num = -1):
 	print('plot fourd receiving data shape',data.shape)
 	global plot_totals
 	#pvc,wood,metal,aluminum
 	colourmaps = ['Reds','Greens','Blues','Greys']
 
-	figure = plt.figure(plot_totals)
+	if plot_num != -1:
+		figure = plt.figure(plot_num)
+		plt.gcf().clear()
+	else:
+		figure = plt.figure(plot_totals)
 
 	plot_totals = plot_totals + 1
 	figure.suptitle(figurename + 'PVC:red, wood:green, metal:blue, aluminum:grey')
 	ax = figure.add_subplot(111, projection='3d')
 	for materialIndex ,cmap in zip(range(NUM_MATERIALS),colourmaps):
 		plot_object = data[...,materialIndex+1]
-		plot_threed_helper(np.squeeze(plot_object), ax = ax,figure = figure,cmap = cmap)
+		plot_threed_helper(np.squeeze(plot_object), ax = ax,figure = figure,cmap = cmap,threshold = threshold)
 
 
 def plot_threed_helper(plot_object,ax ,figure ,cmap = 'coolwarm',threshold = 0.5):
@@ -87,9 +91,15 @@ def plot_threed_helper(plot_object,ax ,figure ,cmap = 'coolwarm',threshold = 0.5
 
 
 
-def plot_threed(plot_object,figurename = 'default',cmap = 'Blues',threshold = 0.3):
+def plot_threed(plot_object,figurename = 'default',cmap = 'Blues',threshold = 0.3,plot_num = -1):
 	global plot_totals
-	figure = plt.figure(plot_totals)
+
+	if plot_num != -1:
+		figure = plt.figure(plot_num)
+		plt.gcf().clear()
+	else:
+		figure = plt.figure(plot_totals)
+
 	plot_totals = plot_totals + 1
 
 	figure.suptitle(figurename)
