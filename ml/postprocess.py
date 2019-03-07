@@ -84,7 +84,7 @@ def plot_threed_helper(plot_object,ax ,figure ,cmap = 'coolwarm',threshold = 0.5
 
 		plt.xlabel('depth',fontsize=16)
 		plt.ylabel('x',fontsize=16)
-		figure.colorbar(scatter)
+		# figure.colorbar(scatter)
 		# plt.clim(0,1)
 	else:
 		print('empty array received')
@@ -135,7 +135,7 @@ def plot_threed(plot_object,figurename = 'default',cmap = 'Blues',threshold = 0.
 		scatter = ax.scatter(filtered_x,filtered_y,filtered_z,c=filtered_colour,cmap=plt.get_cmap(cmap),norm=mpl.colors.Normalize(vmin=0, vmax=1))
 		plt.xlabel('depth',fontsize=16)
 		plt.ylabel('x',fontsize=16)
-		figure.colorbar(scatter)
+		# figure.colorbar(scatter)
 		# plt.clim(0,1)
 	else:
 		print('empty array received')

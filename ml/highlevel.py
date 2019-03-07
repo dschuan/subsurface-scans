@@ -410,13 +410,13 @@ if __name__ == '__main__':
 	continue_training = False
 	epochs = 50
 	batch_size = 16
-	tag = 'cnn_dataug_'
+	tag = 'cnn_dataug_100'
 
 	working_model_params = model_params.copy()
 	# for batch_norm_item in batch_norm_space:
 	# 	working_model_params['batch_norm'] = batch_norm_item
 
-	# run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = batch_size,model_params=working_model_params,load_model = continue_training,show_plot=False,validation_split = 0.3 )
+	run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = batch_size,model_params=working_model_params,load_model = continue_training,show_plot=False,validation_split = 0.0 )
 	#
 	get_report(testX,trainX,testY_onehot,trainY_onehot)
 
