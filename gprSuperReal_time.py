@@ -7,6 +7,8 @@ from imp import load_source
 import winsound
 import matplotlib.pyplot as plt
 import numpy as np
+from xytable.pydrive import xytable
+
 
 
 APP_STATUS = ['STATUS_CLEAN',
@@ -16,7 +18,7 @@ APP_STATUS = ['STATUS_CLEAN',
 'STATUS_SCANNING',
 'STATUS_CALIBRATING',
 'STATUS_CALIBRATING_NO_MOVEMENT']
-
+port = 'COM8'
 WalabotAPI = load_source('WalabotAPI',
     'C:/Program Files/Walabot/WalabotSDK/python/WalabotAPI.py')
 WalabotAPI.Init("C:/Program Files/Walabot/WalabotSDK/bin/WalabotAPI.dll")
@@ -41,18 +43,19 @@ def plotDB(time, amplitude):
     plt.gcf().clear()
 
 def GetSignal(targets, counter, filename, x_pos, y_pos):
-    # jsonRes = {}
+    jsonRes = {}
     # print("target length", len(targets))
-    # jsonRes['coord'] = [x_pos, y_pos]
-    # jsonRes['time'] = targets[1]
-    # jsonRes['amplitude'] = targets[0]
-    # with open(filename) as f:
-    #     data = json.load(f)
-    #
-    # data.update({counter: jsonRes})
-    #
-    # with open(filename, 'w') as f:
-    #     json.dump(data, f)
+    depth = 20
+    #jsonRes['coord'] = [x_pos, y_pos]
+    #jsonRes['time'] = targets[1]
+    #jsonRes['amplitude'] = targets[0]
+    #with open(filename) as f:
+         #data = json.load(f)
+
+    #data.update({counter: jsonRes})
+
+    #with open(filename, 'w') as f:
+         #json.dump(data, f)
     plotDB(targets[1], targets[0])
 
 def PrintSensorTargets(targets, counter, filename, rasterImage, power, x_pos, y_pos):
@@ -93,6 +96,12 @@ def PrintSensorTargets(targets, counter, filename, rasterImage, power, x_pos, y_
             json.dump(data, f)
 
 def InWallApp(filename):
+    global port
+    XYtable = xytable(port)
+    XYtable.open()
+
+    XYtable.set_position(15, 30)
+
     rawSignalFile = filename+'.json'
     imageFile = filename+'_simple.json'
     # WalabotAPI.SetArenaX - input parameters
@@ -152,7 +161,7 @@ def InWallApp(filename):
         targets= WalabotAPI.GetSignal(chosenPair);
         GetSignal(targets, counter, rawSignalFile, x_pos, y_pos)
         print("Obtained ", counter, "raw signal")
-
+        #stopper = input("Continue?")
 
         #targets = WalabotAPI.GetImagingTargets()
         #rasterImage, _, _, _, power = WalabotAPI.GetRawImage()
