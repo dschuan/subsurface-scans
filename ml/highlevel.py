@@ -339,6 +339,10 @@ if __name__ == '__main__':
 	trainX_, testX_, trainY_, testY_ = loadData(**data_params)
 	trainX, trainY = processData([trainX_, trainY_],commands = ["crop","transpose","flip_x","flip_y"])
 	testX, testY = processData([testX_, testY_],commands = ["crop"])
+
+	# trainX, trainY = processData([trainX_, trainY_],commands = ["crop"])
+	# testX, testY = processData([testX_, testY_],commands = ["crop"])
+
 	N = len(trainX)
 	idx = np.arange(N)
 	np.random.seed(5)
@@ -399,9 +403,9 @@ if __name__ == '__main__':
 		'loss': 'mse',
 		'optimizer': 'adam',
 		"kernel_initializer" : "glorot_uniform",
-		'kernel_regularizer': None #keras.regularizers.l2(0.01)
+		'kernel_regularizer': None
 	}
-
+	#keras.regularizers.l2(0.01)
 	trainY_type = trainY
 	testY_type =testY
 	seed = 10
@@ -421,21 +425,21 @@ if __name__ == '__main__':
 	get_report(testX,trainX,testY_onehot,trainY_onehot)
 
 
-	pred = predict(trainX)
-	for i in range(trainY.shape[0]):
-		plot_threed(trainX[i],'input',threshold = 0.6)
-		pred_reshape = np.reshape(pred[i],(32,16,16,OUTPUT_CHANNELS))
-		plot_fourd(pred_reshape,'pred')
-		plot_fourd(trainY[i],'truth')
-		plt.show()
-
-	# pred = predict(testX)
-	# for i in range(testY.shape[0]):
-	# 	plot_threed(testX[i],'input')
+	# pred = predict(trainX)
+	# for i in range(trainY.shape[0]):
+	# 	plot_threed(trainX[i],'input',threshold = 0.6)
 	# 	pred_reshape = np.reshape(pred[i],(32,16,16,OUTPUT_CHANNELS))
 	# 	plot_fourd(pred_reshape,'pred')
-	# 	plot_fourd(testY[i],'truth')
+	# 	plot_fourd(trainY[i],'truth')
 	# 	plt.show()
+
+	pred = predict(testX)
+	for i in range(testY.shape[0]):
+		plot_threed(testX[i],'input',threshold = 0.3)
+		pred_reshape = np.reshape(pred[i],(32,16,16,OUTPUT_CHANNELS))
+		plot_fourd(pred_reshape,'pred')
+		plot_fourd(testY[i],'truth')
+		plt.show()
 
 
 

@@ -135,7 +135,7 @@ def create_model(input_size = (32,16,16,1,)):
 	conv5 = keras.layers.Conv3D(60, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv5)
 	drop5 = keras.layers.Dropout(0.4)(conv5)
 
-	up6 = keras.layers.Conv3D(60, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(keras.layers.UpSampling3D(size = (2,2,2))(drop5))
+	up6 = keras.layers.Conv3D(60, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(keras.layers.UpSampling3D(size = (2,2,2))(drop5))
 
 	print("drop4",keras.backend.shape(drop4))
 	print("up6",keras.backend.shape(up6))
@@ -143,17 +143,17 @@ def create_model(input_size = (32,16,16,1,)):
 	conv6 = keras.layers.Conv3D(48, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
 	conv6 = keras.layers.Conv3D(48, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv6)
 
-	up7 = keras.layers.Conv3D(48, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(keras.layers.UpSampling3D(size = (2,2,2))(conv6))
+	up7 = keras.layers.Conv3D(48, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(keras.layers.UpSampling3D(size = (2,2,2))(conv6))
 	merge7 = keras.layers.concatenate([conv3,up7], axis = 4)
 	conv7 = keras.layers.Conv3D(36, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
 	conv7 = keras.layers.Conv3D(36, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv7)
 
-	up8 = keras.layers.Conv3D(36, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(keras.layers.UpSampling3D(size = (2,2,2))(conv7))
+	up8 = keras.layers.Conv3D(36, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(keras.layers.UpSampling3D(size = (2,2,2))(conv7))
 	merge8 = keras.layers.concatenate([conv2,up8], axis = 4)
 	conv8 = keras.layers.Conv3D(24, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
 	conv8 = keras.layers.Conv3D(24, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv8)
 
-	up9 = keras.layers.Conv3D(24, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(keras.layers.UpSampling3D(size = (2,2,2))(conv8))
+	up9 = keras.layers.Conv3D(24, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(keras.layers.UpSampling3D(size = (2,2,2))(conv8))
 	merge9 = keras.layers.concatenate([conv1,up9], axis = 4)
 	conv9 = keras.layers.Conv3D(18, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
 	conv9 = keras.layers.Conv3D(18, filter_size, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
@@ -285,6 +285,10 @@ if __name__ == '__main__':
 	trainX, trainY = processData([trainX_, trainY_],commands = ["crop","transpose","flip_x","flip_y"])
 	testX, testY = processData([testX_, testY_],commands = ["crop"])
 
+	# trainX, trainY = processData([trainX_, trainY_],commands = ["crop"])
+	# testX, testY = processData([testX_, testY_],commands = ["crop"])
+
+
 	N = len(trainX)
 	idx = np.arange(N)
 	np.random.seed(5)
@@ -304,10 +308,10 @@ if __name__ == '__main__':
 	tf.set_random_seed(seed)
 	np.random.seed(seed)
 	continue_training = False
-	epochs = 50
+	epochs = 100
 	batch_size = 16
-	tag = 'unets_5_large_dataaug'
-	validation = 0.0
+	tag = 'final_model'
+	validation = 0
 	working_model_params = model_params.copy()
 
 	# print_transformations(trainX_,trainY_)
@@ -315,10 +319,10 @@ if __name__ == '__main__':
 	# run(trainX, testX,trainY_type , testY_type ,epochs = epochs ,batch_size = 2,model_params=working_model_params,load_model = continue_training,show_plot=False,validation_split = validation,tag=tag)
 	#
 	#
-	# trainY_onehot= np.reshape(trainY,(trainY.shape[0],-1,OUTPUT_CHANNELS))
-	# testY_onehot= np.reshape(testY,(testY.shape[0],-1,OUTPUT_CHANNELS))
-	# print('trainY_onehot',trainY_onehot.shape)
-	# get_report(testX,trainX,testY_onehot,trainY_onehot)
+	trainY_onehot= np.reshape(trainY,(trainY.shape[0],-1,OUTPUT_CHANNELS))
+	testY_onehot= np.reshape(testY,(testY.shape[0],-1,OUTPUT_CHANNELS))
+	print('trainY_onehot',trainY_onehot.shape)
+	get_report(testX,trainX,testY_onehot,trainY_onehot)
 
 
 	# pred = predict(trainX)
@@ -329,16 +333,13 @@ if __name__ == '__main__':
 	# 	plot_fourd(trainY[i],'truth')
 	# 	plt.show()
 
-	pred = predict(testX)
-	for i in range(testY.shape[0]):
-		plot_threed(testX[i],'input',threshold = 0.3)
-		plt.savefig('./unetresult/x' + str(i) + '.png', bbox_inches='tight')
-		pred_reshape = np.reshape(pred[i],(32,16,16,OUTPUT_CHANNELS))
-		plot_fourd(pred_reshape,'pred')
-		plt.savefig('./unetresult/pred' + str(i) + '.png', bbox_inches='tight')
-		plot_fourd(testY[i],'truth')
-		plt.savefig('./unetresult/y' + str(i) + '.png', bbox_inches='tight')
-		# plt.show()
+	# pred = predict(testX)
+	# for i in range(testY.shape[0]):
+	# 	plot_threed(testX[i],'input',threshold = 0.7)
+	# 	plt.savefig('./raw/x' + str(i) + '.png', bbox_inches='tight')
+	# 	plot_fourd(testY[i],'truth')
+	# 	plt.savefig('./raw/y' + str(i) + '.png', bbox_inches='tight')
+	# 	# plt.show()
 
 
 
